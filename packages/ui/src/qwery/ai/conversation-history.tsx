@@ -20,6 +20,7 @@ import {
 
 export interface Conversation {
   id: string;
+  slug: string;
   title: string;
   createdAt: Date;
 }
@@ -130,8 +131,8 @@ export function ConversationHistory({
     return sortTimeGroups(groupedConversations);
   }, [groupedConversations]);
 
-  const handleConversationSelect = (conversationId: string) => {
-    onConversationSelect?.(conversationId);
+  const handleConversationSelect = (conversationSlug: string) => {
+    onConversationSelect?.(conversationSlug);
     setOpen(false);
   };
 
@@ -177,7 +178,7 @@ export function ConversationHistory({
             <CommandItem
               onSelect={handleNewConversation}
               className={cn(
-                'flex items-center justify-between',
+                'flex cursor-pointer items-center justify-between',
                 !currentConversationId && 'bg-accent text-accent-foreground',
               )}
             >
@@ -206,13 +207,15 @@ export function ConversationHistory({
                   return (
                     <CommandItem
                       key={conversation.id}
-                      onSelect={() => handleConversationSelect(conversation.id)}
+                      onSelect={() =>
+                        handleConversationSelect(conversation.slug)
+                      }
                       className={cn(
                         'flex items-center justify-between',
                         isCurrent && 'bg-accent text-accent-foreground',
                       )}
                     >
-                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <div className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
                         <MessageSquareIcon className="size-4 shrink-0" />
                         <span className="truncate">{conversation.title}</span>
                       </div>

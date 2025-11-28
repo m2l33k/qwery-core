@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Conversation } from '@qwery/domain/entities';
 import { IConversationRepository } from '@qwery/domain/repositories';
 import { CreateConversationService } from '@qwery/domain/services';
+import { getConversationsKey } from '~/lib/queries/use-get-conversations';
 import {
   ConversationOutput,
   CreateConversationInput,
@@ -10,10 +11,6 @@ import {
 
 export function getConversationKey(slug: string) {
   return ['conversation', slug];
-}
-
-export function getConversationsByProjectIdKey(projectId: string) {
-  return ['conversations', 'project', projectId];
 }
 
 export function useConversation(
@@ -35,7 +32,7 @@ export function useConversation(
         queryKey: getConversationKey(conversation.slug),
       });
       queryClient.invalidateQueries({
-        queryKey: getConversationsByProjectIdKey(conversation.projectId),
+        queryKey: getConversationsKey(),
       });
       // Convert DTO back to Conversation for the callback
       onSuccess(conversation as unknown as Conversation);
