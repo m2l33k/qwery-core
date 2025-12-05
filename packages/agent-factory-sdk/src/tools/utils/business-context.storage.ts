@@ -1,4 +1,4 @@
-import type { BusinessContext, BusinessEntity, VocabularyEntry, ViewMetadata } from './business-context.types';
+import type { BusinessContext, BusinessEntity, VocabularyEntry, ViewMetadata } from '../types/business-context.types';
 
 const BUSINESS_CONTEXT_FILE = 'business-context.json';
 

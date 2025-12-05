@@ -32,10 +32,10 @@ import {
   type RegistryContext,
 } from '../../tools/view-registry';
 import { READ_DATA_AGENT_PROMPT } from '../prompts/read-data-agent.prompt';
-import type { BusinessContext } from '../../tools/business-context/business-context.types';
-import { loadBusinessContext, createEmptyContext, mergeBusinessContexts } from '../../tools/business-context/business-context.storage';
-import { getConfig } from '../../tools/business-context/business-context.config';
-import { buildBusinessContext } from '../../tools/business-context/build-business-context';
+import type { BusinessContext } from '../../tools/types/business-context.types';
+import { loadBusinessContext, createEmptyContext, mergeBusinessContexts } from '../../tools/utils/business-context.storage';
+import { getConfig } from '../../tools/utils/business-context.config';
+import { buildBusinessContext } from '../../tools/build-business-context';
 import { enhanceBusinessContextInBackground } from './enhance-business-context.actor';
 
 // Lazy workspace resolution - only resolve when actually needed, not at module load time

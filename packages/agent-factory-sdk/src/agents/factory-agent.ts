@@ -4,6 +4,8 @@ import { nanoid } from 'nanoid';
 import { createStateMachine } from './state-machine';
 import { Repositories } from '@qwery/domain/repositories';
 import { MessagePersistenceService } from '../services/message-persistence.service';
+import { ActorRegistry } from './utils/actor-registry';
+import { loadPersistedState, persistState } from './utils/state-persistence';
 
 export interface FactoryAgentOptions {
   conversationSlug: string;
@@ -16,26 +18,54 @@ export class FactoryAgent {
   private lifecycle: ReturnType<typeof createStateMachine>;
   private factoryActor: ReturnType<typeof createActor>;
   private repositories: Repositories;
+  private actorRegistry: ActorRegistry; // NEW: Actor registry
 
   constructor(opts: FactoryAgentOptions) {
     this.id = nanoid();
     this.conversationSlug = opts.conversationSlug;
     this.repositories = opts.repositories;
+    this.actorRegistry = new ActorRegistry(); // NEW
 
     this.lifecycle = createStateMachine(
       this.conversationSlug,
       this.repositories,
     );
 
+    // NEW: Load persisted state (async, but we'll handle it)
+    // For now, we'll start without persisted state and load it asynchronously
     this.factoryActor = createActor(
       this.lifecycle as ReturnType<typeof createStateMachine>,
     );
 
+    // NEW: Register main factory actor
+    this.actorRegistry.register('factory', this.factoryActor);
+
+    // NEW: Persist state on changes
     this.factoryActor.subscribe((state) => {
       console.log('###Factory state:', state.value);
+      if (state.status === 'active') {
+        persistState(
+          this.conversationSlug,
+          state.snapshot,
+          this.repositories,
+        ).catch((err) => {
+          console.warn('[FactoryAgent] Failed to persist state:', err);
+        });
+      }
     });
 
     this.factoryActor.start();
+  }
+
+  // NEW: Method to get registry
+  getActorRegistry(): ActorRegistry {
+    return this.actorRegistry;
+  }
+
+  // NEW: Cleanup on destroy
+  destroy(): void {
+    this.actorRegistry.stopAll();
+    this.factoryActor.stop();
   }
 
   /**

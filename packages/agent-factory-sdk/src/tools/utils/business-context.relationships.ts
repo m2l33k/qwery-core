@@ -1,5 +1,5 @@
 import type { SimpleSchema } from '@qwery/domain/entities';
-import type { BusinessContext, Relationship } from './business-context.types';
+import type { BusinessContext, Relationship } from '../types/business-context.types';
 import type { PerformanceConfig } from './business-context.config';
 import { isSystemOrTempTable } from './business-context.utils';
 

@@ -1,5 +1,5 @@
 import type { SimpleSchema } from '@qwery/domain/entities';
-import type { DataPatterns } from './business-context.types';
+import type { DataPatterns } from '../types/business-context.types';
 
 /**
  * Extract data patterns from actual data (sample first 100 rows)

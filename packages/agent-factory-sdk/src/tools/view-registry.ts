@@ -61,61 +61,104 @@ function inferEntityName(columnName: string): string {
 }
 
 /**
- * Detect entity patterns from columns
+ * Detect entity patterns from columns (PATTERN-BASED, domain-agnostic)
  */
 function detectEntityPatterns(columns: Array<{ columnName: string; columnType: string }>): string[] {
   const patterns: string[] = [];
-  
+
   for (const col of columns) {
-    const name = col.columnName.toLowerCase();
-    
-    // Look for ID columns
-    if (name.endsWith('_id') || name === 'id') {
+    const name = col.columnName;
+    const lower = name.toLowerCase();
+
+    // Pattern 1: ID columns (e.g., "user_id", "recipe_id")
+    if (lower.endsWith('_id') || lower === 'id') {
       const entity = inferEntityName(col.columnName);
       if (entity && entity !== col.columnName) {
         patterns.push(entity);
       }
     }
-    
-    // Look for common entity indicators
-    const entityKeywords = ['customer', 'user', 'order', 'product', 'driver', 'restaurant', 'employee', 'transaction', 'item'];
-    for (const keyword of entityKeywords) {
-      if (name.includes(keyword) && !name.endsWith('_id')) {
-        patterns.push(keyword.charAt(0).toUpperCase() + keyword.slice(1));
+
+    // Pattern 2: Capitalized single word (e.g., "Athlete", "Recipe", "Book")
+    // These are strong indicators of primary entities
+    if (/^[A-Z][a-z]+$/.test(name) && name.length > 2) {
+      patterns.push(name); // Use as-is
+    }
+
+    // Pattern 3: Plural form (e.g., "Athletes", "Recipes", "Books")
+    if (lower.endsWith('s') && lower.length > 3 && !lower.endsWith('ss')) {
+      const singular = lower.slice(0, -1);
+      if (singular.length > 2) {
+        const capitalized = singular.charAt(0).toUpperCase() + singular.slice(1);
+        patterns.push(capitalized);
       }
     }
   }
-  
-  return [...new Set(patterns)]; // Remove duplicates
+
+  // Return unique patterns, sorted by prominence (capitalized single words first)
+  const unique = [...new Set(patterns)];
+  return unique.sort((a, b) => {
+    // Prioritize capitalized single words (strong entity indicators)
+    const aIsCapitalized = /^[A-Z][a-z]+$/.test(a);
+    const bIsCapitalized = /^[A-Z][a-z]+$/.test(b);
+    if (aIsCapitalized && !bIsCapitalized) return -1;
+    if (!aIsCapitalized && bIsCapitalized) return 1;
+    return 0;
+  });
 }
 
 /**
- * Infer from column names
+ * Infer from column names (PATTERN-BASED, domain-agnostic)
  */
 function inferFromColumnNames(columns: Array<{ columnName: string; columnType: string }>): string | null {
-  // Look for the most common pattern
+  // Strategy 1: Look for most prominent entity pattern
   const patterns = detectEntityPatterns(columns);
   if (patterns.length > 0 && patterns[0]) {
     return pluralize(patterns[0].toLowerCase());
   }
-  
-  // Look for name/title columns
-  const nameColumns = columns.filter(c => 
-    c.columnName.toLowerCase().includes('name') || 
-    c.columnName.toLowerCase().includes('title')
-  );
-  
+
+  // Strategy 2: Look for capitalized single-word columns (strong entity indicators)
+  const capitalizedColumns = columns
+    .filter((c) => /^[A-Z][a-z]+$/.test(c.columnName) && c.columnName.length > 2)
+    .map((c) => c.columnName);
+
+  if (capitalizedColumns.length > 0) {
+    // Use the first capitalized column as the primary entity
+    const firstCol = capitalizedColumns[0];
+    if (firstCol) {
+      return pluralize(firstCol.toLowerCase());
+    }
+  }
+
+  // Strategy 3: Look for name/title columns and infer entity
+  const nameColumns = columns.filter((c) => {
+    const lower = c.columnName.toLowerCase();
+    return lower.includes('name') || lower.includes('title') || lower.includes('label');
+  });
+
   if (nameColumns.length > 0) {
     const nameCol = nameColumns[0];
     if (nameCol) {
-      const words = nameCol.columnName.toLowerCase().split('_');
+      // Extract entity from column name (e.g., "recipe_name" → "recipe")
+      const words = nameCol.columnName.toLowerCase().split(/[_\s-]/);
       if (words.length > 1 && words[0]) {
         const entity = words[0];
         return pluralize(entity);
       }
     }
   }
-  
+
+  // Strategy 4: Use first column if it looks like an entity
+  if (columns.length > 0) {
+    const firstCol = columns[0];
+    if (firstCol) {
+      const name = firstCol.columnName;
+      // If first column is capitalized single word, use it
+      if (/^[A-Z][a-z]+$/.test(name)) {
+        return pluralize(name.toLowerCase());
+      }
+    }
+  }
+
   return null;
 }
 

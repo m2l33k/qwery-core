@@ -1,17 +1,18 @@
 import { fromPromise } from 'xstate/actors';
 import type { SimpleSchema } from '@qwery/domain/entities';
-import type { BusinessContext } from '../../tools/business-context/business-context.types';
-import { loadBusinessContext, saveBusinessContext, createEmptyContext } from '../../tools/business-context/business-context.storage';
-import { analyzeSchema, buildVocabulary, inferDomain, buildEntityGraph, isSystemOrTempTable } from '../../tools/business-context/business-context.utils';
-import { findRelationshipsParallel } from '../../tools/business-context/business-context.relationships';
-import { extractDataPatterns } from '../../tools/business-context/business-context.patterns';
-import { getConfig } from '../../tools/business-context/business-context.config';
+import type { BusinessContext } from '../../tools/types/business-context.types';
+import { loadBusinessContext, saveBusinessContext, createEmptyContext } from '../../tools/utils/business-context.storage';
+import { analyzeSchema, buildVocabulary, inferDomain, buildEntityGraph, isSystemOrTempTable } from '../../tools/utils/business-context.utils';
+import { findRelationshipsParallel } from '../../tools/utils/business-context.relationships';
+import { extractDataPatterns } from '../../tools/utils/business-context.patterns';
+import { getConfig } from '../../tools/utils/business-context.config';
 
 export interface EnhanceBusinessContextInput {
   conversationDir: string;
   viewName: string;
   schema: SimpleSchema;
   dbPath?: string;
+  parentActorId?: string; // Optional parent actor ID for communication
 }
 
 // Track in-flight enhancements to prevent duplicates

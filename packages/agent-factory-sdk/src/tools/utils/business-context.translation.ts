@@ -1,4 +1,4 @@
-import type { BusinessContext, BusinessEntity, Relationship } from './business-context.types';
+import type { BusinessContext, BusinessEntity, Relationship } from '../types/business-context.types';
 import { toSingular } from './business-context.utils';
 
 /**

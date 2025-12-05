@@ -352,6 +352,9 @@ export type AgentContext = {
     | ReturnType<(typeof Experimental_Agent)['prototype']['stream']>; // holds the streaming result from AI SDK
   intent: Intent;
   error?: string;
+  retryCount?: number; // Track retry attempts
+  lastError?: Error; // Store last error for retry logic
+  enhancementActors?: Array<{ id: string; ref: any }>; // Track spawned actors
 };
 
 export type AgentEvents =

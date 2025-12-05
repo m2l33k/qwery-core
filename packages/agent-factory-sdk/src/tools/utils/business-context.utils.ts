@@ -1,18 +1,8 @@
 import type { SimpleSchema } from '@qwery/domain/entities';
-import type { BusinessEntity, Relationship, VocabularyEntry } from './business-context.types';
+import type { BusinessEntity, Relationship, VocabularyEntry } from '../types/business-context.types';
 import type { PerformanceConfig } from './business-context.config';
 
-// Synonym mappings for common business terms
-const BUSINESS_SYNONYMS: Record<string, string[]> = {
-  customer: ['client', 'user', 'buyer', 'purchaser'],
-  order: ['purchase', 'transaction', 'sale'],
-  product: ['item', 'goods', 'merchandise'],
-  employee: ['staff', 'worker', 'personnel'],
-  department: ['dept', 'division', 'unit'],
-  revenue: ['sales', 'income', 'amount', 'total'],
-  status: ['state', 'condition'],
-  date: ['timestamp', 'time', 'created_at', 'updated_at'],
-};
+// Removed BUSINESS_SYNONYMS - now using pattern-based synonym detection (domain-agnostic)
 
 // Plural to singular mappings
 const PLURAL_TO_SINGULAR: Record<string, string> = {
@@ -277,7 +267,38 @@ export function analyzeSchema(
 }
 
 /**
- * Build enhanced vocabulary with synonyms, plurals, and confidence
+ * Detect synonyms from column name patterns (domain-agnostic)
+ */
+function detectSynonymsFromPatterns(entityName: string, allColumns: string[]): string[] {
+  const synonyms: string[] = [];
+  const entityLower = entityName.toLowerCase();
+
+  // Pattern 1: Plural/singular variations
+  if (entityLower.endsWith('s')) {
+    synonyms.push(entityLower.slice(0, -1)); // singular
+  } else {
+    synonyms.push(entityLower + 's'); // plural
+  }
+
+  // Pattern 2: Column name variations (e.g., "user_name" → "user")
+  for (const col of allColumns) {
+    const lower = col.toLowerCase();
+    if (lower.includes(entityLower) && lower !== entityLower) {
+      // Extract variations (e.g., "user_id", "user_name" → "user")
+      const parts = lower.split(/[_\s-]/);
+      for (const part of parts) {
+        if (part === entityLower && !synonyms.includes(part)) {
+          synonyms.push(part);
+        }
+      }
+    }
+  }
+
+  return [...new Set(synonyms)].filter((s) => s !== entityLower);
+}
+
+/**
+ * Build enhanced vocabulary with synonyms, plurals, and confidence (pattern-based)
  */
 export function buildVocabulary(
   entities: BusinessEntity[],
@@ -287,11 +308,17 @@ export function buildVocabulary(
   const vocabulary = new Map<string, VocabularyEntry>();
   const normalizedMap = new Map<string, string>(); // normalized -> original
 
+  // Collect all column names for pattern-based synonym detection
+  const allColumnNames = entities.flatMap((e) => e.columns);
+
   for (const entity of entities) {
     // Skip low-confidence entities
     if (entity.confidence < minConfidence) continue;
 
     const entityNameLower = entity.name.toLowerCase();
+
+    // Detect synonyms from patterns (domain-agnostic)
+    const detectedSynonyms = detectSynonymsFromPatterns(entity.name, allColumnNames);
 
     // Create or update vocabulary entry
     let entry = vocabulary.get(entityNameLower);
@@ -300,7 +327,7 @@ export function buildVocabulary(
         businessTerm: entity.name,
         technicalTerms: [],
         confidence: entity.confidence,
-        synonyms: BUSINESS_SYNONYMS[entityNameLower] || [],
+        synonyms: detectedSynonyms,
       };
       vocabulary.set(entityNameLower, entry);
     }
@@ -336,18 +363,17 @@ export function buildVocabulary(
           businessTerm: entity.name,
           technicalTerms: [column],
           confidence: 1.0,
-          synonyms: BUSINESS_SYNONYMS[entityNameLower] || [],
+          synonyms: detectedSynonyms,
         });
       }
 
-      // Variations with lower confidence
+      // Variations with lower confidence (pattern-based)
       const variations = [
         column.replace(/_id$/, ''),
-        column.replace(/^user_/, ''),
-        column.replace(/^customer_/, ''),
-        column.replace(/^order_/, ''),
         toSingular(column),
-      ];
+        // Extract first word from snake_case/camelCase
+        column.split(/[_\s-]/)[0] || column,
+      ].filter((v) => v && v !== column && v.length > 0);
 
       for (const variation of variations) {
         if (variation && variation !== column && variation.length > 0) {
@@ -359,7 +385,7 @@ export function buildVocabulary(
               businessTerm: entity.name,
               technicalTerms: [column],
               confidence: 0.8,
-              synonyms: BUSINESS_SYNONYMS[entityNameLower] || [],
+              synonyms: detectedSynonyms,
             });
           }
         }
@@ -409,78 +435,144 @@ export function buildEntityGraph(
 }
 
 /**
- * Infer business domain from all schemas (enhanced with confidence)
+ * Infer domain from schema patterns (PATTERN-BASED, domain-agnostic)
+ * Analyzes column name patterns, structures, and relationships to infer domain
  */
 export function inferDomain(schemas: SimpleSchema[]): { domain: string; confidence: number; keywords: string[]; alternativeDomains: Array<{ domain: string; confidence: number }> } {
-  const allColumns = new Set<string>();
-  const keywords = new Map<string, number>();
+  // Collect all column names and patterns
+  const allColumns: string[] = [];
+  const columnPatterns = new Map<string, number>(); // pattern -> count
 
   for (const schema of schemas) {
     for (const table of schema.tables) {
-      for (const column of table.columns) {
-        const colName = column.columnName.toLowerCase();
-        allColumns.add(colName);
+      for (const col of table.columns) {
+        const name = col.columnName.toLowerCase();
+        allColumns.push(name);
 
-        // Extract keywords
-        const words = colName.split('_');
+        // Extract patterns (words, stems)
+        const words = name.split(/[_\s-]/).filter((w) => w.length > 2);
         for (const word of words) {
-          if (word.length > 2) {
-            keywords.set(word, (keywords.get(word) || 0) + 1);
-          }
+          const count = columnPatterns.get(word) || 0;
+          columnPatterns.set(word, count + 1);
         }
       }
     }
   }
 
-  // Common business domain keywords (extended)
-  const domainKeywords: Record<string, string[]> = {
-    ecommerce: ['order', 'product', 'cart', 'payment', 'customer', 'purchase', 'shipping'],
-    hr: ['employee', 'department', 'position', 'salary', 'hr', 'staff', 'personnel'],
-    crm: ['customer', 'contact', 'lead', 'account', 'opportunity', 'client'],
-    analytics: ['metric', 'kpi', 'dashboard', 'report', 'analytics', 'measure'],
-    finance: ['transaction', 'payment', 'invoice', 'revenue', 'expense', 'budget'],
-    inventory: ['product', 'stock', 'warehouse', 'supply', 'item'],
-    general: [], // fallback
-  };
+  // Pattern-based domain inference (no hardcoded domains)
+  // Analyze column patterns to infer domain characteristics
 
-  const domainScores: Array<{ domain: string; score: number; matchedKeywords: string[] }> = [];
+  // Pattern 1: Temporal data (dates, times, years)
+  const hasTemporal = allColumns.some(
+    (c) =>
+      c.includes('date') ||
+      c.includes('time') ||
+      c.includes('year') ||
+      c.includes('month') ||
+      c.includes('day') ||
+      c === 'timestamp',
+  );
 
-  for (const [domain, keywords_list] of Object.entries(domainKeywords)) {
-    let score = 0;
-    const matched: string[] = [];
+  // Pattern 2: Financial data (amounts, prices, costs, currency)
+  const hasFinancial = allColumns.some(
+    (c) =>
+      c.includes('price') ||
+      c.includes('cost') ||
+      c.includes('amount') ||
+      c.includes('revenue') ||
+      c.includes('expense') ||
+      c.includes('budget') ||
+      c.includes('currency') ||
+      c.includes('payment') ||
+      c.includes('total'),
+  );
 
-    for (const keyword of keywords_list) {
-      const count = keywords.get(keyword) || 0;
-      if (count > 0) {
-        score += count;
-        matched.push(keyword);
-      }
-    }
+  // Pattern 3: Location data (address, city, country, location)
+  const hasLocation = allColumns.some(
+    (c) =>
+      c.includes('address') ||
+      c.includes('city') ||
+      c.includes('country') ||
+      c.includes('location') ||
+      c.includes('region') ||
+      c.includes('state') ||
+      c.includes('zip') ||
+      c.includes('postal'),
+  );
 
-    domainScores.push({ domain, score, matchedKeywords: matched });
+  // Pattern 4: Measurement data (weight, height, quantity, count)
+  const hasMeasurement = allColumns.some(
+    (c) =>
+      c.includes('weight') ||
+      c.includes('height') ||
+      c.includes('quantity') ||
+      c.includes('count') ||
+      c.includes('size') ||
+      c.includes('length') ||
+      c.includes('width') ||
+      c.includes('volume'),
+  );
+
+  // Pattern 5: Rating/score data (rating, score, grade, stars)
+  const hasRating = allColumns.some(
+    (c) =>
+      c.includes('rating') ||
+      c.includes('score') ||
+      c.includes('grade') ||
+      c.includes('star') ||
+      c.includes('review') ||
+      c.includes('feedback'),
+  );
+
+  // Build domain inference from patterns
+  const keywords: string[] = [];
+  const alternativeDomains: Array<{ domain: string; confidence: number }> = [];
+  let domain = 'general';
+  let confidence = 0.5;
+
+  // Combine patterns to infer domain
+  if (hasFinancial && hasTemporal) {
+    domain = 'finance';
+    confidence = 0.8;
+    keywords.push('financial', 'temporal', 'transaction');
+  } else if (hasLocation && hasRating) {
+    domain = 'location_based';
+    confidence = 0.75;
+    keywords.push('location', 'rating', 'review');
+  } else if (hasMeasurement && hasTemporal) {
+    domain = 'tracking';
+    confidence = 0.75;
+    keywords.push('measurement', 'temporal', 'progress');
+  } else if (hasFinancial) {
+    domain = 'financial';
+    confidence = 0.7;
+    keywords.push('financial', 'monetary');
+  } else if (hasLocation) {
+    domain = 'geographic';
+    confidence = 0.7;
+    keywords.push('location', 'geographic');
+  } else if (hasRating) {
+    domain = 'review';
+    confidence = 0.7;
+    keywords.push('rating', 'review');
+  } else if (hasTemporal) {
+    domain = 'temporal';
+    confidence = 0.65;
+    keywords.push('temporal', 'time_series');
   }
 
-  // Sort by score
-  domainScores.sort((a, b) => b.score - a.score);
-
-  const maxScore = domainScores[0]?.score || 0;
-  const totalPossible = Object.values(domainKeywords).flat().length;
-  const confidence = maxScore > 0 ? Math.min(maxScore / (totalPossible * 0.3), 1.0) : 0.5;
-
-  const primary = domainScores[0] || { domain: 'general', score: 0, matchedKeywords: [] };
-  const alternatives = domainScores
-    .slice(1, 4)
-    .filter((d) => d.score > 0)
-    .map((d) => ({
-      domain: d.domain,
-      confidence: Math.min(d.score / (totalPossible * 0.3), 1.0),
-    }));
+  // Add top column patterns as keywords
+  const topPatterns = Array.from(columnPatterns.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([pattern]) => pattern);
+  keywords.push(...topPatterns);
 
   return {
-    domain: primary.domain,
+    domain,
     confidence,
-    keywords: primary.matchedKeywords,
-    alternativeDomains: alternatives,
+    keywords: [...new Set(keywords)], // Remove duplicates
+    alternativeDomains,
   };
 }
 
