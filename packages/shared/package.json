@@ -25,7 +25,7 @@
     "@qwery/tsconfig": "workspace:*",
     "@types/react": "catalog:",
     "eslint": "^9.39.0",
-    "typescript": "^5.9.3"
+    "typescript": "catalog:"
   },
   "dependencies": {
     "pino": "^10.1.0"

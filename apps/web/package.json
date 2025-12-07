@@ -48,15 +48,15 @@
     "isbot": "^5.1.31",
     "lucide-react": "^0.552.0",
     "next-themes": "0.4.6",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "react-hook-form": "^7.66.0",
     "react-i18next": "^16.2.3",
-    "react-router": "^7.9.5",
+    "react-router": "catalog:",
     "recharts": "^2.15.4",
     "sonner": "^2.0.7",
     "uuid": "^11.0.3",
-    "zod": "^3.25.76"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@qwery/eslint-config": "workspace:*",
@@ -72,7 +72,7 @@
     "@types/react-dom": "^19.2.2",
     "@vercel/react-router": "^1.2.4",
     "@vitejs/plugin-react": "^5.1.0",
-    "@vitest/coverage-istanbul": "^4.0.7",
+    "@vitest/coverage-istanbul": "catalog:",
     "cross-env": "^10.1.0",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9.39.0",
@@ -84,11 +84,11 @@
     "jsdom": "^27.1.0",
     "tailwindcss": "4.1.16",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5.9.3",
-    "vite": "^7.1.12",
+    "typescript": "catalog:",
+    "vite": "catalog:",
     "vite-plugin-devtools-json": "^1.0.0",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "4.0.7"
+    "vitest": "catalog:"
   },
   "engines": {
     "node": ">=18.0.0"

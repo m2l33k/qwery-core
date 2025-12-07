@@ -15,7 +15,7 @@
   },
   "devDependencies": {
     "@qwery/tsconfig": "workspace:*",
-    "typescript": "^5.9.3"
+    "typescript": "catalog:"
   },
   "prettier": "./index.mjs"
 }

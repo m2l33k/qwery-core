@@ -27,16 +27,16 @@
     "reflect-metadata": "^0.2.2",
     "sqids": "^0.3.0",
     "uuid": "^11.0.3",
-    "zod": "^3.25.76"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@qwery/eslint-config": "workspace:*",
     "@qwery/prettier-config": "workspace:*",
     "@qwery/tsconfig": "workspace:*",
-    "@vitest/coverage-istanbul": "^4.0.7",
+    "@vitest/coverage-istanbul": "catalog:",
     "eslint": "^9.39.0",
-    "typescript": "^5.9.3",
-    "vitest": "4.0.7"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "prettier": "@qwery/prettier-config",
   "typesVersions": {
