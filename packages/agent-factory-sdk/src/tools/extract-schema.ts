@@ -3,9 +3,13 @@ import type {
   SimpleTable,
   SimpleColumn,
 } from '@qwery/domain/entities';
+import type { DuckDBInstance } from '@duckdb/node-api';
+
+// Connection type from DuckDB instance
+type Connection = Awaited<ReturnType<DuckDBInstance['connect']>>;
 
 export interface ExtractSchemaOptions {
-  dbPath: string;
+  connection: Connection; // Changed from dbPath
   viewName?: string;
   allowTempTables?: boolean; // Allow temp tables during creation process
 }
@@ -13,21 +17,14 @@ export interface ExtractSchemaOptions {
 export const extractSchema = async (
   opts: ExtractSchemaOptions,
 ): Promise<SimpleSchema> => {
-  const { mkdir } = await import('node:fs/promises');
-  const { dirname } = await import('node:path');
+  const conn = opts.connection;
 
-  // Ensure directory exists
-  const dbDir = dirname(opts.dbPath);
-  await mkdir(dbDir, { recursive: true });
-
-  const { DuckDBInstance } = await import('@duckdb/node-api');
-  const instance = await DuckDBInstance.create(opts.dbPath);
-  const conn = await instance.connect();
+  console.log(
+    `[ExtractSchema] Extracting schema${opts.viewName ? ` for view: ${opts.viewName}` : ' (all views)'}`,
+  );
 
   // Import validation function
-  const { isSystemOrTempTable, validateTableExists } = await import(
-    './view-registry'
-  );
+  const { isSystemOrTempTable } = await import('./view-registry');
 
   try {
     // Validate view exists and is not temp if viewName is provided
@@ -39,8 +36,11 @@ export const extractSchema = async (
         );
       }
 
-      const exists = await validateTableExists(opts.dbPath, opts.viewName);
-      if (!exists) {
+      // Check if view exists by trying to describe it
+      try {
+        const escapedViewName = opts.viewName.replace(/"/g, '""');
+        await conn.run(`DESCRIBE "${escapedViewName}"`);
+      } catch {
         throw new Error(`View '${opts.viewName}' does not exist in database`);
       }
     }
@@ -141,9 +141,9 @@ export const extractSchema = async (
     };
 
     return schema;
-  } finally {
-    conn.closeSync();
-    instance.closeSync();
+  } catch (error) {
+    // Re-throw error, connection management is handled by caller
+    throw error;
   }
 };
 
@@ -151,7 +151,7 @@ export const extractSchema = async (
  * Extract schemas for multiple views in parallel
  */
 export async function extractSchemasParallel(
-  dbPath: string,
+  connection: Connection,
   viewNames: string[],
   concurrency: number = 4,
 ): Promise<Map<string, SimpleSchema>> {
@@ -188,7 +188,7 @@ export async function extractSchemasParallel(
   const schemas = await processWithConcurrency(
     viewNames,
     async (viewName) => {
-      const schema = await extractSchema({ dbPath, viewName });
+      const schema = await extractSchema({ connection, viewName });
       return [viewName, schema] as [string, SimpleSchema];
     },
     concurrency,

@@ -46,12 +46,7 @@ import { getConfig } from '../../tools/utils/business-context.config';
 import type { Repositories } from '@qwery/domain/repositories';
 import { initializeDatasources } from '../../tools/datasource-initializer';
 import { GetConversationBySlugService } from '@qwery/domain/services';
-import {
-  loadDatasources,
-  groupDatasourcesByType,
-} from '../../tools/datasource-loader';
-import { datasourceToDuckdb } from '../../tools/datasource-to-duckdb';
-import { attachAllForeignDatasourcesToConnection } from '../../tools/foreign-datasource-attach';
+import { DuckDBInstanceManager } from '../../tools/duckdb-instance-manager';
 
 /**
  * Initializes datasources at the start, then creates and streams from the agent
@@ -74,12 +69,13 @@ export const readDataAgent = async (
           await getConversationService.execute(conversationId);
 
         if (conversation?.datasources && conversation.datasources.length > 0) {
-          // Initialize all datasources
+          // Initialize all datasources with checked state
           const initResults = await initializeDatasources({
             conversationId,
             datasourceIds: conversation.datasources,
             datasourceRepository: repositories.datasource,
             workspace,
+            checkedDatasourceIds: conversation.datasources, // All are checked initially
           });
 
           const { join } = await import('node:path');
@@ -238,6 +234,7 @@ export const readDataAgent = async (
           }
           const { join } = await import('node:path');
           const dbPath = join(workspace, conversationId, 'database.db');
+          // testConnection still uses dbPath directly, which is fine for testing
           const result = await testConnection({
             dbPath: dbPath,
           });
@@ -865,6 +862,10 @@ export const readDataAgent = async (
             ),
         }),
         execute: async ({ viewName }) => {
+          console.log(
+            `[ReadDataAgent] getSchema called${viewName ? ` for view: ${viewName}` : ' (all views)'}`,
+          );
+
           const workspace = getWorkspace();
           if (!workspace) {
             throw new Error('WORKSPACE environment variable is not set');
@@ -872,6 +873,40 @@ export const readDataAgent = async (
           const { join } = await import('node:path');
           const fileDir = join(workspace, conversationId);
           const dbPath = join(fileDir, 'database.db');
+
+          console.log(
+            `[ReadDataAgent] Workspace: ${workspace}, ConversationId: ${conversationId}, dbPath: ${dbPath}`,
+          );
+
+          // Get connection from manager
+          const conn = await DuckDBInstanceManager.getConnection(
+            conversationId,
+            workspace,
+          );
+
+          // Sync datasources before querying schema
+          if (repositories) {
+            try {
+              const getConversationService = new GetConversationBySlugService(
+                repositories.conversation,
+              );
+              const conversation =
+                await getConversationService.execute(conversationId);
+              if (conversation?.datasources?.length) {
+                await DuckDBInstanceManager.syncDatasources(
+                  conversationId,
+                  workspace,
+                  conversation.datasources,
+                  repositories.datasource,
+                );
+              }
+            } catch (error) {
+              console.warn(
+                '[ReadDataAgent] Failed to sync datasources:',
+                error,
+              );
+            }
+          }
 
           // Helper to describe a single table/view
           const describeObject = async (
@@ -917,36 +952,9 @@ export const readDataAgent = async (
             }
           };
 
-          // Enumerate all databases/schemas/tables/views from DuckDB
-          const { DuckDBInstance } = await import('@duckdb/node-api');
-          const instance = await DuckDBInstance.create(dbPath);
-          const conn = await instance.connect();
-
           const collectedSchemas: Map<string, SimpleSchema> = new Map();
 
           try {
-            // Re-attach foreign datasources for this connection
-            if (repositories) {
-              try {
-                const getConversationService = new GetConversationBySlugService(
-                  repositories.conversation,
-                );
-                const conversation =
-                  await getConversationService.execute(conversationId);
-                if (conversation?.datasources?.length) {
-                  await attachAllForeignDatasourcesToConnection({
-                    conn,
-                    datasourceIds: conversation.datasources,
-                    datasourceRepository: repositories.datasource,
-                  });
-                }
-              } catch (error) {
-                console.warn(
-                  '[ReadDataAgent] Failed to attach foreign datasources:',
-                  error,
-                );
-              }
-            }
 
             const dbReader = await conn.runAndReadAll(
               'SELECT name FROM pragma_database_list;',
@@ -963,21 +971,125 @@ export const readDataAgent = async (
               table: string;
             }> = [];
 
+            // Get system schemas using extension abstraction
+            const { getAllSystemSchemas, isSystemTableName } = await import(
+              '../../tools/system-schema-filter'
+            );
+            const systemSchemas = getAllSystemSchemas();
+
             for (const db of databases) {
               const escapedDb = db.replace(/"/g, '""');
-              const tablesReader = await conn.runAndReadAll(`
-                SELECT table_schema, table_name, table_type
-                FROM information_schema.tables
-                WHERE table_catalog = '${escapedDb}'
-                  AND table_type IN ('BASE TABLE', 'VIEW')
-              `);
-              await tablesReader.readAll();
-              const tableRows = tablesReader.getRowObjectsJS() as Array<{
+              
+              // For attached foreign databases, query their information_schema directly
+              // For main database, query the default information_schema
+              const isAttachedDb = db.startsWith('ds_');
+              
+              let tableRows: Array<{
                 table_schema: string;
                 table_name: string;
                 table_type: string;
-              }>;
-              for (const row of tableRows) {
+              }> = [];
+              let viewRows: Array<{
+                table_schema: string;
+                table_name: string;
+                table_type: string;
+              }> = [];
+              
+              if (isAttachedDb) {
+                // For attached databases, query their information_schema directly
+                try {
+                  const tablesReader = await conn.runAndReadAll(`
+                    SELECT table_schema, table_name, table_type
+                    FROM "${escapedDb}".information_schema.tables
+                    WHERE table_type = 'BASE TABLE'
+                  `);
+                  await tablesReader.readAll();
+                  tableRows = tablesReader.getRowObjectsJS() as Array<{
+                    table_schema: string;
+                    table_name: string;
+                    table_type: string;
+                  }>;
+                  
+                  // Attached databases typically don't have views, but check anyway
+                  try {
+                    const viewsReader = await conn.runAndReadAll(`
+                      SELECT table_schema, table_name, 'VIEW' as table_type
+                      FROM "${escapedDb}".information_schema.views
+                    `);
+                    await viewsReader.readAll();
+                    viewRows = viewsReader.getRowObjectsJS() as Array<{
+                      table_schema: string;
+                      table_name: string;
+                      table_type: string;
+                    }>;
+                  } catch {
+                    // Views might not be available for attached databases
+                    viewRows = [];
+                  }
+                } catch (error) {
+                  console.warn(
+                    `[ReadDataAgent] Failed to query tables from attached database ${db}: ${error}`,
+                  );
+                  continue;
+                }
+              } else {
+                // For main database, query the default information_schema
+                try {
+                  const tablesReader = await conn.runAndReadAll(`
+                    SELECT table_schema, table_name, table_type
+                    FROM information_schema.tables
+                    WHERE table_catalog = '${escapedDb}'
+                      AND table_type = 'BASE TABLE'
+                  `);
+                  await tablesReader.readAll();
+                  tableRows = tablesReader.getRowObjectsJS() as Array<{
+                    table_schema: string;
+                    table_name: string;
+                    table_type: string;
+                  }>;
+                  
+                  // Also query views separately (views in main database might not show up in tables query)
+                  const viewsReader = await conn.runAndReadAll(`
+                    SELECT table_schema, table_name, 'VIEW' as table_type
+                    FROM information_schema.views
+                    WHERE table_catalog = '${escapedDb}'
+                  `);
+                  await viewsReader.readAll();
+                  viewRows = viewsReader.getRowObjectsJS() as Array<{
+                    table_schema: string;
+                    table_name: string;
+                    table_type: string;
+                  }>;
+                } catch (error) {
+                  console.warn(
+                    `[ReadDataAgent] Failed to query tables from database ${db}: ${error}`,
+                  );
+                  continue;
+                }
+              }
+              
+              // Combine tables and views
+              const allRows = [...tableRows, ...viewRows];
+              
+              for (const row of allRows) {
+                const schemaName = (row.table_schema || 'main').toLowerCase();
+                
+                // Skip system schemas
+                if (systemSchemas.has(schemaName)) {
+                  console.debug(
+                    `[ReadDataAgent] Skipping system schema: ${db}.${schemaName}.${row.table_name}`,
+                  );
+                  continue;
+                }
+
+                // Skip system tables
+                if (isSystemTableName(row.table_name)) {
+                  console.debug(
+                    `[ReadDataAgent] Skipping system table: ${db}.${schemaName}.${row.table_name}`,
+                  );
+                  continue;
+                }
+
                 targets.push({
                   db,
                   schema: row.table_schema || 'main',
@@ -1005,12 +1117,19 @@ export const readDataAgent = async (
                   tableName = parts[0] ?? tableName;
                 }
               }
-              const schema = await describeObject(
-                conn,
-                db,
-                schemaName,
-                tableName,
+              // Check if this is a system table before describing
+              const { isSystemOrTempTable } = await import(
+                '../../tools/utils/business-context.utils'
               );
+              const fullName = `${db}.${schemaName}.${tableName}`;
+              
+              if (isSystemOrTempTable(fullName)) {
+                throw new Error(
+                  `Cannot access system table: ${viewId}. Please query user tables only.`,
+                );
+              }
+
+              const schema = await describeObject(conn, db, schemaName, tableName);
               if (!schema) {
                 throw new Error(`Object "${viewId}" not found in DuckDB`);
               }
@@ -1031,8 +1150,12 @@ export const readDataAgent = async (
               }
             }
           } finally {
-            conn.closeSync();
-            instance.closeSync();
+            // Return connection to pool
+            DuckDBInstanceManager.returnConnection(
+              conversationId,
+              workspace,
+              conn,
+            );
           }
 
           // Get performance configuration
@@ -1081,8 +1204,32 @@ export const readDataAgent = async (
             }
           } else {
             // Multiple views - build fast context for each
+            // Filter out system tables before processing
+            const { isSystemOrTempTable } = await import(
+              '../../tools/utils/business-context.utils'
+            );
+
             const fastContexts: BusinessContext[] = [];
             for (const [vName, vSchema] of schemasMap.entries()) {
+              // Skip system tables
+              if (isSystemOrTempTable(vName)) {
+                console.debug(
+                  `[ReadDataAgent] Skipping system table in context building: ${vName}`,
+                );
+                continue;
+              }
+
+              // Also check if schema has any valid tables
+              const hasValidTables = vSchema.tables.some(
+                (t) => !isSystemOrTempTable(t.tableName),
+              );
+              if (!hasValidTables) {
+                console.debug(
+                  `[ReadDataAgent] Skipping schema with no valid tables: ${vName}`,
+                );
+                continue;
+              }
+
               const ctx = await buildBusinessContext({
                 conversationDir: fileDir,
                 viewName: vName,
@@ -1156,15 +1303,8 @@ export const readDataAgent = async (
           if (!workspace) {
             throw new Error('WORKSPACE environment variable is not set');
           }
-          const { join } = await import('node:path');
-          const fileDir = join(workspace, conversationId);
-          const dbPath = join(fileDir, 'database.db');
 
-          // Load business context for query understanding
-          const businessContext = await loadBusinessContext(fileDir);
-
-          // Get conversation datasources for foreign datasource attachment
-          let datasourceIds: string[] | undefined;
+          // Sync datasources before querying if repositories available
           if (repositories) {
             try {
               const getConversationService = new GetConversationBySlugService(
@@ -1172,17 +1312,25 @@ export const readDataAgent = async (
               );
               const conversation =
                 await getConversationService.execute(conversationId);
-              datasourceIds = conversation?.datasources;
+              if (conversation?.datasources?.length) {
+                await DuckDBInstanceManager.syncDatasources(
+                  conversationId,
+                  workspace,
+                  conversation.datasources,
+                  repositories.datasource,
+                );
+              }
             } catch (error) {
               console.warn(
-                '[ReadDataAgent] Failed to get conversation datasources:',
+                '[ReadDataAgent] Failed to sync datasources before query:',
                 error,
               );
             }
           }
 
           const result = await runQuery({
-            dbPath,
+            conversationId,
+            workspace,
             query,
             datasourceIds,
             datasourceRepository: repositories?.datasource,

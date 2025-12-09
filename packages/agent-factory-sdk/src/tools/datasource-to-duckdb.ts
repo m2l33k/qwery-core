@@ -1,7 +1,11 @@
 import type { Datasource } from '@qwery/domain/entities';
 import type { SimpleSchema } from '@qwery/domain/entities';
+import type { DuckDBInstance } from '@duckdb/node-api';
 import { extractSchema } from './extract-schema';
 import { gsheetToDuckdb } from './gsheet-to-duckdb';
+
+// Connection type from DuckDB instance
+type Connection = Awaited<ReturnType<DuckDBInstance['connect']>>;
 
 const sanitizeName = (value: string): string => {
   const cleaned = value.replace(/[^a-zA-Z0-9_]/g, '_');
@@ -9,7 +13,7 @@ const sanitizeName = (value: string): string => {
 };
 
 export interface DatasourceToDuckDbOptions {
-  dbPath: string;
+  connection: Connection; // Changed from dbPath
   datasource: Datasource;
 }
 
@@ -26,7 +30,7 @@ export interface CreateViewResult {
 export async function datasourceToDuckdb(
   opts: DatasourceToDuckDbOptions,
 ): Promise<CreateViewResult> {
-  const { dbPath, datasource } = opts;
+  const { connection: conn, datasource } = opts;
 
   // Dynamically import extensions-sdk to avoid build-time dependency issues
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -123,17 +127,16 @@ export async function datasourceToDuckdb(
       throw new Error('No tables found in datasource metadata');
     }
 
-    // Generate deterministic view name (no registry dependency)
+    // Generate deterministic view name with datasource ID to prevent collisions
     const baseName =
       datasource.name?.trim() ||
       datasource.datasource_provider?.trim() ||
       'data';
     const tablePart = firstTable.name || 'table';
-    const viewName = sanitizeName(`${baseName}_${tablePart}`.toLowerCase());
-
-    const { DuckDBInstance } = await import('@duckdb/node-api');
-    const instance = await DuckDBInstance.create(dbPath);
-    const conn = await instance.connect();
+    // Include datasource ID in view name to prevent collisions
+    const viewName = sanitizeName(
+      `${datasource.id}_${baseName}_${tablePart}`.toLowerCase(),
+    );
 
     try {
       const escapedViewName = viewName.replace(/"/g, '""');
@@ -150,7 +153,7 @@ export async function datasourceToDuckdb(
           );
         }
         await gsheetToDuckdb({
-          dbPath,
+          connection: conn,
           sharedLink,
           viewName: escapedViewName,
         });
@@ -206,16 +209,15 @@ export async function datasourceToDuckdb(
           `Failed to create or verify view "${viewName}": ${errorMsg}`,
         );
       }
-    } finally {
-      // Close connection to ensure view is persisted to disk
-      conn.closeSync();
-      instance.closeSync();
+    } catch (error) {
+      // Re-throw error, connection management is handled by caller
+      throw error;
     }
 
-    // Extract schema from the created view using a new connection
+    // Extract schema from the created view using the same connection
     // Note: extractSchema will escape the viewName internally, so we pass the unescaped version
     const schema = await extractSchema({
-      dbPath,
+      connection: conn,
       viewName,
     });
 

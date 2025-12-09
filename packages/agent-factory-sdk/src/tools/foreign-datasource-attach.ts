@@ -1,8 +1,12 @@
 import type { Datasource } from '@qwery/domain/entities';
 import type { SimpleSchema } from '@qwery/domain/entities';
+import type { DuckDBInstance } from '@duckdb/node-api';
+
+// Connection type from DuckDB instance
+type Connection = Awaited<ReturnType<DuckDBInstance['connect']>>;
 
 export interface ForeignDatasourceAttachOptions {
-  dbPath: string;
+  connection: Connection; // Changed from dbPath
   datasource: Datasource;
 }
 
@@ -180,11 +184,7 @@ export async function attachAllForeignDatasourcesToConnection(opts: {
 export async function attachForeignDatasource(
   opts: ForeignDatasourceAttachOptions,
 ): Promise<AttachResult> {
-  const { dbPath, datasource } = opts;
-
-  const { DuckDBInstance } = await import('@duckdb/node-api');
-  const instance = await DuckDBInstance.create(dbPath);
-  const conn = await instance.connect();
+  const { connection: conn, datasource } = opts;
 
   try {
     const provider = datasource.datasource_provider.toLowerCase();
@@ -211,7 +211,7 @@ export async function attachForeignDatasource(
           );
         }
 
-        attachQuery = `ATTACH '${pgConnectionUrl.replace(/'/g, "''")}' AS ${attachedDatabaseName} (TYPE POSTGRES)`;
+        attachQuery = `ATTACH '${pgConnectionUrl.replace(/'/g, "''")}' AS "${attachedDatabaseName}" (TYPE POSTGRES)`;
         break;
       }
 
@@ -226,7 +226,7 @@ export async function attachForeignDatasource(
         const mysqlDatabase = (config.database as string) || '';
 
         const mysqlConnectionString = `host=${mysqlHost} port=${mysqlPort} user=${mysqlUser} password=${mysqlPassword} database=${mysqlDatabase}`;
-        attachQuery = `ATTACH '${mysqlConnectionString.replace(/'/g, "''")}' AS ${attachedDatabaseName} (TYPE MYSQL)`;
+        attachQuery = `ATTACH '${mysqlConnectionString.replace(/'/g, "''")}' AS "${attachedDatabaseName}" (TYPE MYSQL)`;
         break;
       }
 
@@ -239,7 +239,7 @@ export async function attachForeignDatasource(
           );
         }
 
-        attachQuery = `ATTACH '${sqlitePath.replace(/'/g, "''")}' AS ${attachedDatabaseName}`;
+        attachQuery = `ATTACH '${sqlitePath.replace(/'/g, "''")}' AS "${attachedDatabaseName}"`;
         break;
       }
 
@@ -254,7 +254,7 @@ export async function attachForeignDatasource(
     try {
       await conn.run(attachQuery);
       console.debug(
-        `[ForeignDatasourceAttach] Attached ${attachedDatabaseName} on file: ${dbPath}`,
+        `[ForeignDatasourceAttach] Attached ${attachedDatabaseName}`,
       );
     } catch (error) {
       // If already attached, that's okay
@@ -308,37 +308,24 @@ export async function attachForeignDatasource(
       table_name: string;
     }>;
 
+    // Get system schemas using extension abstraction (once, outside loop)
+    const { getSystemSchemas, isSystemTableName } = await import(
+      './system-schema-filter'
+    );
+    const systemSchemas = await getSystemSchemas(datasource.datasource_provider);
+
     // Create views for each table
     for (const table of tables) {
       const schemaName = table.table_schema || 'main';
       const tableName = table.table_name;
 
       // Skip system/internal schemas and tables
-      const systemSchemas = [
-        'information_schema',
-        'pg_catalog',
-        'pg_toast',
-        'supabase_migrations',
-        'vault',
-        'storage',
-        'realtime',
-        'graphql',
-        'graphql_public',
-        'auth', // Supabase auth schema
-        'extensions', // PostgreSQL extensions schema
-        'pgbouncer', // Connection pooler schema
-      ];
-      if (systemSchemas.includes(schemaName.toLowerCase())) {
+      if (systemSchemas.has(schemaName.toLowerCase())) {
         continue;
       }
 
       // Skip system tables
-      if (
-        tableName.startsWith('pg_') ||
-        tableName.startsWith('_') ||
-        tableName.includes('_migrations') ||
-        tableName.includes('_secrets')
-      ) {
+      if (isSystemTableName(tableName)) {
         continue;
       }
 
@@ -429,8 +416,8 @@ export async function attachForeignDatasource(
       attachedDatabaseName,
       tables: tablesInfo,
     };
-  } finally {
-    conn.closeSync();
-    instance.closeSync();
+  } catch (error) {
+    // Re-throw error, connection management is handled by caller
+    throw error;
   }
 }
