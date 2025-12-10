@@ -20,3 +20,9 @@ export { type ChatStatus } from 'ai';
 export { AgentTabs } from './agent-tabs';
 export { DatasourceSelector, type DatasourceItem } from './datasource-selector';
 export { AgentStatusProvider, useAgentStatus } from '../agent-status-context';
+
+// Data visualization components
+export * from './data-grid';
+export * from './schema-visualizer';
+export * from './sql-query-visualizer';
+export * from './tool-error-visualizer';

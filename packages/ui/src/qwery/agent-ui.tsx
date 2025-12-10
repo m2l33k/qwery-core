@@ -63,7 +63,7 @@ import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import { BotAvatar } from './bot-avatar';
 import { Sparkles } from 'lucide-react';
-import { QweryPromptInput, type DatasourceItem } from './ai';
+import { QweryPromptInput, type DatasourceItem, ToolPart } from './ai';
 import { QweryContextProps } from './ai/context';
 
 export interface QweryAgentUIProps {
@@ -545,11 +545,6 @@ export default function QweryAgentUI(props: QweryAgentUIProps) {
                           default:
                             if (part.type.startsWith('tool-')) {
                               const toolPart = part as ToolUIPart;
-                              const toolName =
-                                'toolName' in toolPart &&
-                                typeof toolPart.toolName === 'string'
-                                  ? toolPart.toolName
-                                  : toolPart.type.replace('tool-', '');
                               const inProgressStates = new Set([
                                 'input-streaming',
                                 'input-available',
@@ -746,164 +741,43 @@ export default function QweryAgentUI(props: QweryAgentUIProps) {
                                 }
                               }
 
-                              return (
-                                <Tool
-                                  key={`${message.id}-${i}`}
-                                  defaultOpen={
-                                    toolPart.state === 'output-error' ||
-                                    (isGenerateChart &&
-                                      toolPart.state === 'output-available')
-                                  }
-                                >
-                                  <ToolHeader
-                                    title={toolName}
-                                    type={toolPart.type}
-                                    state={toolPart.state}
-                                  />
-                                  <ToolContent>
-                                    {toolPart.input != null &&
-                                    !isRunQuery &&
-                                    !isGetSchema &&
-                                    !isListViews &&
-                                    !isViewSheet ? (
-                                      <ToolInput input={toolPart.input} />
-                                    ) : null}
-                                    {isToolInProgress && (
+                              // Show loader while tool is in progress
+                              if (isToolInProgress) {
+                                return (
+                                  <Tool
+                                    key={`${message.id}-${i}`}
+                                    defaultOpen={false}
+                                  >
+                                    <ToolHeader
+                                      title={
+                                        'toolName' in toolPart &&
+                                        typeof toolPart.toolName === 'string'
+                                          ? toolPart.toolName
+                                          : toolPart.type.replace('tool-', '')
+                                      }
+                                      type={toolPart.type}
+                                      state={toolPart.state}
+                                    />
+                                    <ToolContent>
+                                      {toolPart.input != null ? (
+                                        <ToolInput input={toolPart.input} />
+                                      ) : null}
                                       <div className="flex items-center justify-center py-8">
                                         <Loader size={20} />
                                       </div>
-                                    )}
-                                    {isSelectChartType && chartSelection ? (
-                                      <div className="min-w-0 space-y-2 p-4">
-                                        <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                                          Chart Type Selection
-                                        </h4>
-                                        <div className="bg-muted/50 max-w-full min-w-0 overflow-hidden rounded-md p-4">
-                                          <ChartTypeSelector
-                                            selection={chartSelection}
-                                          />
-                                        </div>
-                                      </div>
-                                    ) : isGenerateChart && chartConfig ? (
-                                      <div className="min-w-0 space-y-2 p-4">
-                                        <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                                          Chart
-                                        </h4>
-                                        <div className="bg-muted/50 w-full max-w-full min-w-0 overflow-hidden rounded-md p-4">
-                                          <ChartRenderer
-                                            chartConfig={chartConfig}
-                                          />
-                                        </div>
-                                      </div>
-                                    ) : isGetSchema && schemaData ? (
-                                      <div className="min-w-0 space-y-2 p-4">
-                                        <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                                          Schema
-                                        </h4>
-                                        <div className="bg-muted/50 max-w-full min-w-0 overflow-hidden rounded-md p-4">
-                                          <SchemaVisualizer
-                                            schema={schemaData}
-                                          />
-                                        </div>
-                                      </div>
-                                    ) : isRunQuery && sqlResult ? (
-                                      <div className="min-w-0 space-y-2 p-4">
-                                        <SQLQueryVisualizer
-                                          query={sqlQuery}
-                                          result={sqlResult}
-                                        />
-                                      </div>
-                                    ) : isListViews && viewsData ? (
-                                      <div className="min-w-0 space-y-2 p-4">
-                                        <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                                          Available Sheets
-                                        </h4>
-                                        <div className="bg-muted/50 max-w-full min-w-0 overflow-hidden rounded-md p-4">
-                                          <AvailableSheetsVisualizer
-                                            data={{
-                                              sheets: viewsData.views.map(
-                                                (v) => ({
-                                                  name: v.viewName,
-                                                  type: 'view' as const,
-                                                }),
-                                              ),
-                                              message: viewsData.message,
-                                            }}
-                                            isRequestInProgress={
-                                              status === 'streaming' ||
-                                              status === 'submitted' ||
-                                              hasViewSheetInMessage
-                                            }
-                                            onViewSheet={(sheetName) => {
-                                              sendMessage({
-                                                text: `View sheet "${sheetName}"`,
-                                              });
-                                            }}
-                                          />
-                                        </div>
-                                      </div>
-                                    ) : isViewSheet && viewSheetData ? (
-                                      <div
-                                        ref={(el) => {
-                                          if (el) {
-                                            viewSheetRefs.current.set(
-                                              `${message.id}-${i}`,
-                                              el,
-                                            );
-                                          } else {
-                                            viewSheetRefs.current.delete(
-                                              `${message.id}-${i}`,
-                                            );
-                                          }
-                                        }}
-                                        className="min-w-0 scroll-mt-4 space-y-2 p-4"
-                                      >
-                                        <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                                          Sheet View
-                                        </h4>
-                                        <div className="bg-muted/50 max-w-full min-w-0 overflow-hidden rounded-md p-4">
-                                          <ViewSheetVisualizer
-                                            data={viewSheetData}
-                                          />
-                                        </div>
-                                      </div>
-                                    ) : isViewSheet && toolPart.errorText ? (
-                                      <div className="min-w-0 space-y-2 p-4">
-                                        <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                                          Sheet View
-                                        </h4>
-                                        <div className="bg-muted/50 max-w-full min-w-0 overflow-hidden rounded-md p-4">
-                                          <ViewSheetError
-                                            errorText={toolPart.errorText}
-                                            sheetName={
-                                              toolPart.input &&
-                                              typeof toolPart.input ===
-                                                'object' &&
-                                              'sheetName' in toolPart.input &&
-                                              typeof toolPart.input
-                                                .sheetName === 'string'
-                                                ? toolPart.input.sheetName
-                                                : undefined
-                                            }
-                                            availableSheets={viewsData?.views.map(
-                                              (v) => v.viewName,
-                                            )}
-                                            onRetry={(sheetName: string) => {
-                                              sendMessage({
-                                                text: `View sheet "${sheetName}"`,
-                                              });
-                                            }}
-                                          />
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <ToolOutput
-                                        output={toolPart.output}
-                                        errorText={toolPart.errorText}
-                                      />
-                                    )}
-                                  </ToolContent>
-                                </Tool>
+                                    </ToolContent>
+                                  </Tool>
+                                );
+                              }
+
+                              // Use ToolPart component for completed tools (includes visualizers)
+                              return (
+                                <ToolPart
+                                  key={`${message.id}-${i}`}
+                                  part={toolPart}
+                                  messageId={message.id}
+                                  index={i}
+                                />
                               );
                             }
                             return null;

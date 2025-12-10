@@ -52,6 +52,9 @@ import {
 import { useMemo, useState } from 'react';
 import { CopyIcon, RefreshCcwIcon, XCircleIcon, CheckIcon } from 'lucide-react';
 import { ToolUIPart } from 'ai';
+import { SQLQueryVisualizer } from './sql-query-visualizer';
+import { SchemaVisualizer } from './schema-visualizer';
+import { ToolErrorVisualizer } from './tool-error-visualizer';
 
 export type TaskStatus = 'pending' | 'in-progress' | 'completed' | 'error';
 
@@ -633,6 +636,57 @@ export function ToolPart({ part, messageId, index }: ToolPartProps) {
   const isListAvailableSheets = part.type === 'tool-listAvailableSheets';
   const isViewSheet = part.type === 'tool-viewSheet';
 
+  // Render specialized visualizers based on tool type
+  const renderToolOutput = () => {
+    // Handle errors with ToolErrorVisualizer
+    if (part.state === 'output-error' && part.errorText) {
+      return <ToolErrorVisualizer errorText={part.errorText} />;
+    }
+
+    // Handle runQuery tool with SQLQueryVisualizer
+    if (part.type === 'tool-runQuery' && part.output) {
+      const input = part.input as { query?: string } | null;
+      const output = part.output as
+        | { result?: { columns: string[]; rows: Array<Record<string, unknown>> } }
+        | null;
+      return (
+        <SQLQueryVisualizer
+          query={input?.query}
+          result={
+            output?.result
+              ? {
+                  result: {
+                    columns: output.result.columns,
+                    rows: output.result.rows,
+                  },
+                }
+              : undefined
+          }
+        />
+      );
+    }
+
+    // Handle getSchema tool with SchemaVisualizer
+    if (part.type === 'tool-getSchema' && part.output) {
+      const output = part.output as {
+        schema?: {
+          databaseName: string;
+          schemaName: string;
+          tables: Array<{
+            tableName: string;
+            columns: Array<{ columnName: string; columnType: string }>;
+          }>;
+        };
+      } | null;
+      if (output?.schema) {
+        return <SchemaVisualizer schema={output.schema} />;
+      }
+    }
+
+    // Default fallback to generic ToolOutput
+    return <ToolOutput output={part.output} errorText={part.errorText} />;
+  };
+
   return (
     <Tool
       key={`${messageId}-${index}`}
@@ -640,38 +694,8 @@ export function ToolPart({ part, messageId, index }: ToolPartProps) {
     >
       <ToolHeader title={toolName} type={part.type} state={part.state} />
       <ToolContent>
-        {part.input != null &&
-        !isRunQuery &&
-        !isGetSchema &&
-        !isListAvailableSheets &&
-        !isViewSheet ? (
-          <ToolInput input={part.input} />
-        ) : null}
-        {isSelectChartType ? (
-          <ChartTypeSelectionOutput
-            output={part.output}
-            errorText={part.errorText}
-          />
-        ) : isGenerateChart ? (
-          <ChartToolOutput output={part.output} errorText={part.errorText} />
-        ) : isGetSchema ? (
-          <SchemaOutput output={part.output} errorText={part.errorText} />
-        ) : isRunQuery ? (
-          <SQLQueryOutput
-            output={part.output}
-            input={part.input}
-            errorText={part.errorText}
-          />
-        ) : isListAvailableSheets ? (
-          <AvailableSheetsOutput
-            output={part.output}
-            errorText={part.errorText}
-          />
-        ) : isViewSheet ? (
-          <ViewSheetOutput output={part.output} errorText={part.errorText} />
-        ) : (
-          <ToolOutput output={part.output} errorText={part.errorText} />
-        )}
+        {part.input != null ? <ToolInput input={part.input} /> : null}
+        {renderToolOutput()}
       </ToolContent>
     </Tool>
   );
