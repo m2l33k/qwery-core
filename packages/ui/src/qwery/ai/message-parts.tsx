@@ -58,6 +58,8 @@ import { ToolErrorVisualizer } from './tool-error-visualizer';
 import { AvailableSheetsVisualizer } from './sheets/available-sheets-visualizer';
 import { ViewSheetVisualizer } from './sheets/view-sheet-visualizer';
 import { ViewSheetError } from './sheets/view-sheet-error';
+import { ChartRenderer } from './charts/chart-renderer';
+import type { ChartConfig } from './charts/chart-renderer';
 
 export type TaskStatus = 'pending' | 'in-progress' | 'completed' | 'error';
 
@@ -750,6 +752,14 @@ export function ToolPart({ part, messageId, index }: ToolPartProps) {
     if (part.type === 'tool-viewSheet' && part.state === 'output-error' && part.errorText) {
       const input = part.input as { sheetName?: string } | null;
       return <ViewSheetError errorText={part.errorText} sheetName={input?.sheetName} />;
+    }
+
+    // Handle generateChart tool with ChartRenderer
+    if (part.type === 'tool-generateChart' && part.output) {
+      const output = part.output as ChartConfig | null;
+      if (output?.chartType && output?.data && output?.config) {
+        return <ChartRenderer chartConfig={output} />;
+      }
     }
 
     // Default fallback to generic ToolOutput

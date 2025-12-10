@@ -18,6 +18,11 @@ import { listAvailableSheets } from '../../tools/list-available-sheets';
 import { viewSheet } from '../../tools/view-sheet';
 import { renameSheet } from '../../tools/rename-sheet';
 import { deleteSheet } from '../../tools/delete-sheet';
+import {
+  selectChartType,
+  generateChart,
+} from '../tools/generate-chart';
+import { loadBusinessContext } from '../../tools/utils/business-context.storage';
 import { READ_DATA_AGENT_PROMPT } from '../prompts/read-data-agent.prompt';
 import { buildBusinessContext } from '../../tools/build-business-context';
 import { enhanceBusinessContextInBackground } from './enhance-business-context.actor';
@@ -1729,6 +1734,85 @@ export const readDataAgent = async (
           });
           return result;
 >>>>>>> 94078ce ( AZIZ feat(agent): add sheet management tools to read-data agent)
+        },
+      }),
+      selectChartType: tool({
+        description:
+          'Analyzes query results to determine the best chart type (bar, line, or pie) based on the data structure and user intent. Use this before generating a chart to select the most appropriate visualization type.',
+        inputSchema: z.object({
+          queryResults: z.object({
+            rows: z.array(z.record(z.unknown())),
+            columns: z.array(z.string()),
+          }),
+          sqlQuery: z.string().optional(),
+          userInput: z.string().optional(),
+        }),
+        execute: async ({ queryResults, sqlQuery = '', userInput = '' }) => {
+          const workspace = getWorkspace();
+          if (!workspace) {
+            throw new Error('WORKSPACE environment variable is not set');
+          }
+          const { join } = await import('node:path');
+          const fileDir = join(workspace, conversationId);
+
+          // Load business context if available
+          let businessContext: BusinessContext | null = null;
+          try {
+            businessContext = await loadBusinessContext(fileDir);
+          } catch {
+            // Business context not available, continue without it
+          }
+
+          const result = await selectChartType(
+            queryResults,
+            sqlQuery,
+            userInput,
+            businessContext,
+          );
+          return result;
+        },
+      }),
+      generateChart: tool({
+        description:
+          'Generates a chart configuration JSON for visualization. Takes query results and creates a chart (bar, line, or pie) with proper data transformation, colors, and labels. Use this after selecting a chart type or when the user requests a specific chart type.',
+        inputSchema: z.object({
+          chartType: z.enum(['bar', 'line', 'pie']).optional(),
+          queryResults: z.object({
+            rows: z.array(z.record(z.unknown())),
+            columns: z.array(z.string()),
+          }),
+          sqlQuery: z.string().optional(),
+          userInput: z.string().optional(),
+        }),
+        execute: async ({
+          chartType,
+          queryResults,
+          sqlQuery = '',
+          userInput = '',
+        }) => {
+          const workspace = getWorkspace();
+          if (!workspace) {
+            throw new Error('WORKSPACE environment variable is not set');
+          }
+          const { join } = await import('node:path');
+          const fileDir = join(workspace, conversationId);
+
+          // Load business context if available
+          let businessContext: BusinessContext | null = null;
+          try {
+            businessContext = await loadBusinessContext(fileDir);
+          } catch {
+            // Business context not available, continue without it
+          }
+
+          const result = await generateChart({
+            chartType,
+            queryResults,
+            sqlQuery,
+            userInput,
+            businessContext,
+          });
+          return result;
         },
       }),
     },

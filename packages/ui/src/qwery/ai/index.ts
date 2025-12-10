@@ -31,3 +31,13 @@ export * from './tool-error-visualizer';
 export * from './sheets/available-sheets-visualizer';
 export * from './sheets/view-sheet-visualizer';
 export * from './sheets/view-sheet-error';
+
+// Chart components
+export * from './charts/chart-renderer';
+export * from './charts/chart-wrapper';
+export * from './charts/chart-type-selector';
+export * from './charts/chart-color-editor';
+export * from './charts/bar-chart';
+export * from './charts/line-chart';
+export * from './charts/pie-chart';
+export * from './charts/chart-utils';

@@ -227,6 +227,18 @@ Available tools:
    - Views the contents of a sheet (first N rows).
    - Shows the sheet data in a table format.
 
+9) selectChartType
+   - Input: queryResults (rows and columns), sqlQuery (optional), userInput (optional).
+   - Analyzes query results to determine the best chart type (bar, line, or pie).
+   - Returns the selected chart type and reasoning.
+   - Use this before generating a chart to select the most appropriate visualization.
+
+10) generateChart
+   - Input: chartType (optional, 'bar' | 'line' | 'pie'), queryResults (rows and columns), sqlQuery (optional), userInput (optional).
+   - Generates a chart configuration JSON for visualization.
+   - Creates a chart with proper data transformation, colors, and labels.
+   - Use this after selecting a chart type or when the user requests a specific chart type.
+
 Workflow:
 - If user provides a new Google Sheet URL, use createDbViewFromSheet to import it and confirm - do not run queries
 - If user asks a question about the data, use getSchema to understand structure, then translate to SQL and execute with runQuery
