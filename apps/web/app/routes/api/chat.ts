@@ -108,42 +108,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const conversation =
       await repositories.conversation.findBySlug(conversationSlug);
 
-    if (conversation && conversation.title === 'New Conversation') {
-      const existingMessages = await repositories.message.findByConversationId(
-        conversation.id,
-      );
-      const userMessages = existingMessages.filter(
-        (msg) => msg.role === MessageRole.USER,
-      );
-
-      if (userMessages.length === 0) {
-        const firstUserMessage = messages.find((msg) => msg.role === 'user');
-        if (firstUserMessage) {
-          const textParts = firstUserMessage.parts
-            ?.filter((part) => part.type === 'text')
-            .map((part) => (part as { text: string }).text)
-            .join(' ')
-            .trim();
-
-          if (textParts && textParts.length > 0) {
-            generateConversationTitle(textParts)
-              .then((generatedTitle: string) => {
-                if (generatedTitle && generatedTitle !== 'New Conversation') {
-                  repositories.conversation.update({
-                    ...conversation,
-                    title: generatedTitle,
-                    updatedBy: conversation.createdBy,
-                    updatedAt: new Date(),
-                  });
-                }
-              })
-              .catch((error: unknown) => {
-                console.error('Failed to generate conversation title:', error);
-              });
-          }
-        }
-      }
-    }
+    const shouldGenerateTitle =
+      conversation &&
+      conversation.title === 'New Conversation' &&
+      (() => {
+        // This will be checked after streaming completes
+        return true;
+      })();
 
     const agent = await getOrCreateAgent(conversationSlug, model);
 
@@ -155,6 +126,16 @@ export async function action({ request, params }: ActionFunctionArgs) {
       return new Response(null, { status: 204 });
     }
 
+    // Extract user message for title generation
+    const firstUserMessage = messages.find((msg) => msg.role === 'user');
+    const userMessageText = firstUserMessage
+      ? firstUserMessage.parts
+          ?.filter((part) => part.type === 'text')
+          .map((part) => (part as { text: string }).text)
+          .join(' ')
+          .trim() || ''
+      : '';
+
     const stream = new ReadableStream({
       async start(controller) {
         const reader = streamResponse.body!.getReader();
@@ -165,6 +146,76 @@ export async function action({ request, params }: ActionFunctionArgs) {
             const { done, value } = await reader.read();
             if (done) {
               controller.close();
+
+              // After stream completes, generate title if needed
+              if (shouldGenerateTitle && userMessageText) {
+                // Wait a bit for messages to be saved to database
+                setTimeout(async () => {
+                  try {
+                    const existingMessages =
+                      await repositories.message.findByConversationId(
+                        conversation!.id,
+                      );
+                    const userMessages = existingMessages.filter(
+                      (msg) => msg.role === MessageRole.USER,
+                    );
+                    const assistantMessages = existingMessages.filter(
+                      (msg) => msg.role === MessageRole.ASSISTANT,
+                    );
+
+                    // Only generate if this is still the first exchange
+                    if (
+                      userMessages.length === 1 &&
+                      assistantMessages.length === 1 &&
+                      conversation!.title === 'New Conversation'
+                    ) {
+                      const assistantMessage = assistantMessages[0];
+                      if (!assistantMessage) return;
+
+                      // Extract text from message content (which contains UIMessage structure with parts)
+                      let assistantText = '';
+                      if (
+                        typeof assistantMessage.content === 'object' &&
+                        assistantMessage.content !== null &&
+                        'parts' in assistantMessage.content &&
+                        Array.isArray(assistantMessage.content.parts)
+                      ) {
+                        assistantText = assistantMessage.content.parts
+                          .filter(
+                            (part: { type?: string }) => part.type === 'text',
+                          )
+                          .map(
+                            (part: { text?: string }) =>
+                              part.text || '',
+                          )
+                          .join(' ')
+                          .trim();
+                      }
+
+                      if (assistantText) {
+                        const generatedTitle = await generateConversationTitle(
+                          userMessageText,
+                          assistantText,
+                        );
+                        if (
+                          generatedTitle &&
+                          generatedTitle !== 'New Conversation'
+                        ) {
+                          await repositories.conversation.update({
+                            ...conversation!,
+                            title: generatedTitle,
+                            updatedBy: conversation!.createdBy,
+                            updatedAt: new Date(),
+                          });
+                        }
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Failed to generate conversation title:', error);
+                  }
+                }, 1000); // Wait 1 second for messages to be saved
+              }
+
               break;
             }
 
