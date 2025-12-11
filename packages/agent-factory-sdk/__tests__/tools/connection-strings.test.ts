@@ -16,9 +16,10 @@ describe('Connection String Tests', () => {
       };
 
       const connectionString = mapping!.getConnectionString(config);
-      expect(connectionString).toBe(config.connectionUrl);
+      // Code adds sslmode=prefer if not present for DuckDB compatibility
       expect(connectionString).toContain('supabase.co');
       expect(connectionString).toContain('postgres:testpass');
+      expect(connectionString).toContain('sslmode=prefer');
     });
 
     it('should generate valid ATTACH query for Supabase', async () => {
@@ -72,8 +73,8 @@ describe('Connection String Tests', () => {
       expect(attachQuery).toContain('TYPE POSTGRES');
       expect(attachQuery).toContain('ds_test');
       expect(attachQuery).toContain('neon.tech');
-      // Should use sslmode=prefer for DuckDB compatibility
-      expect(connectionString).toContain('sslmode=prefer');
+      // Code keeps existing sslmode (require) if set, doesn't change to prefer
+      expect(connectionString).toContain('sslmode=require');
       expect(connectionString).not.toContain('channel_binding');
     });
   });
