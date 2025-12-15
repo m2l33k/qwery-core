@@ -3,7 +3,8 @@ import { createContext, useContext, useMemo } from 'react';
 import type { IDatasourceRepository } from '@qwery/domain/repositories';
 import { GetDatasourceService } from '@qwery/domain/services';
 import { DatasourceKind } from '@qwery/domain/entities';
-import { getDiscoveredDatasource, getExtension } from '@qwery/extensions-sdk';
+import { getExtension } from '@qwery/extensions-loader';
+import { getDiscoveredDatasource } from '@qwery/extensions-sdk';
 import { apiPost } from '~/lib/repositories/api-client';
 
 interface AgentsContextValue {

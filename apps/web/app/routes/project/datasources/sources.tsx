@@ -1,11 +1,10 @@
-import { getDatasources } from '~/lib/datasources-loader';
+import { DATASOURCES } from '~/lib/datasources-loader';
 
 import { NewDatasource } from '../_components/new-datasource';
 import type { Route } from './+types/sources';
 
 export async function loader() {
-  const pluginDatasources = await getDatasources();
-  return { pluginDatasources };
+  return { pluginDatasources: DATASOURCES };
 }
 
 export default function ProjectDatasourcesPage({

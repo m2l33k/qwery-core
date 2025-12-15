@@ -31,6 +31,7 @@
     "@mlc-ai/web-llm": "^0.2.79",
     "@qwery/agent-factory-sdk": "workspace:*",
     "@qwery/domain": "workspace:*",
+    "@qwery/extensions-loader": "workspace:*",
     "@qwery/extensions-sdk": "workspace:*",
     "@qwery/repository-in-memory": "workspace:*",
     "ai": "^5.0.93",

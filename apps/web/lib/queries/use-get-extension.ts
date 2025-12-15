@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { getExtension } from '@qwery/extensions-sdk';
+import { getExtension } from '@qwery/extensions-loader';
 
 export function useGetExtension(extensionId: string) {
   return useQuery({

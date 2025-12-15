@@ -1,22 +1,15 @@
 import { Skeleton } from '@qwery/ui/skeleton';
 
 import { useWorkspace } from '~/lib/context/workspace-context';
-import { getDatasources } from '~/lib/datasources-loader';
 import { useGetDatasourcesByProjectId } from '~/lib/queries/use-get-datasources';
 
 import { ListDatasources } from '../_components/list-datasources';
-import { NewDatasource } from '../_components/new-datasource';
-import type { Route } from './+types/index';
+import pathsConfig, { createPath } from '~/config/paths.config';
+import { Navigate, useParams } from 'react-router';
 
-export async function loader(_args: Route.LoaderArgs) {
-  const pluginDatasources = await getDatasources();
-  return { pluginDatasources };
-}
-
-export default function ProjectDatasourcesPage({
-  loaderData,
-}: Route.ComponentProps) {
-  const { pluginDatasources } = loaderData;
+export default function ProjectDatasourcesPage() {
+  const params = useParams();
+  const slug = params.slug as string;
   const { repositories, workspace } = useWorkspace();
   const datasources = useGetDatasourcesByProjectId(
     repositories.datasource,
@@ -25,13 +18,13 @@ export default function ProjectDatasourcesPage({
 
   const hasDatasources = datasources.data?.length ?? 0 > 0;
 
+  if (!datasources.isLoading && !hasDatasources) {
+    return <Navigate to={createPath(pathsConfig.app.availableSources, slug)} />;
+  }
+
   return (
     <div className="p-2 lg:p-4">
       {datasources.isLoading && <Skeleton className="h-10 w-full" />}
-
-      {!datasources.isLoading && !hasDatasources && (
-        <NewDatasource datasources={pluginDatasources} />
-      )}
 
       {!datasources.isLoading && hasDatasources && (
         <ListDatasources datasources={datasources.data || []} />

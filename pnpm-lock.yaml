@@ -125,6 +125,9 @@ importers:
       '@qwery/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@qwery/extensions-loader':
+        specifier: workspace:*
+        version: link:../../packages/extensions-loader
       '@qwery/extensions-sdk':
         specifier: workspace:*
         version: link:../../packages/extensions-sdk
@@ -350,6 +353,9 @@ importers:
       '@qwery/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@qwery/extensions-loader':
+        specifier: workspace:*
+        version: link:../../packages/extensions-loader
       '@qwery/extensions-sdk':
         specifier: workspace:*
         version: link:../../packages/extensions-sdk
@@ -640,6 +646,9 @@ importers:
       '@qwery/domain':
         specifier: workspace:*
         version: link:../domain
+      '@qwery/extensions-loader':
+        specifier: workspace:*
+        version: link:../extensions-loader
       '@qwery/extensions-sdk':
         specifier: workspace:*
         version: link:../extensions-sdk
@@ -807,6 +816,58 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 3.25.76
+    devDependencies:
+      '@qwery/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint
+      '@qwery/prettier-config':
+        specifier: workspace:*
+        version: link:../../tooling/prettier
+      '@qwery/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@vitest/coverage-istanbul':
+        specifier: 'catalog:'
+        version: 4.0.9(vitest@4.0.7)
+      eslint:
+        specifier: ^9.39.0
+        version: 9.39.1(jiti@2.6.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.7(@types/debug@4.1.12)(@types/node@24.9.2)(@vitest/ui@4.0.8)(jiti@2.6.1)(jsdom@27.1.0)(lightningcss@1.30.2)(msw@2.12.4(@types/node@24.9.2)(typescript@5.9.3))(tsx@4.20.6)(yaml@2.8.1)
+
+  packages/extensions-loader:
+    dependencies:
+      '@qwery/extension-clickhouse-node':
+        specifier: workspace:*
+        version: link:../extensions/clickhouse-node
+      '@qwery/extension-duckdb':
+        specifier: workspace:*
+        version: link:../extensions/duckdb
+      '@qwery/extension-gsheet-csv':
+        specifier: workspace:*
+        version: link:../extensions/gsheet-csv
+      '@qwery/extension-json-online':
+        specifier: workspace:*
+        version: link:../extensions/json-online
+      '@qwery/extension-mysql':
+        specifier: workspace:*
+        version: link:../extensions/mysql
+      '@qwery/extension-parquet-online':
+        specifier: workspace:*
+        version: link:../extensions/parquet-online
+      '@qwery/extension-postgresql':
+        specifier: workspace:*
+        version: link:../extensions/postgresql
+      '@qwery/extension-youtube-data-api-v3':
+        specifier: workspace:*
+        version: link:../extensions/youtube-data-api-v3
+      '@qwery/extensions-sdk':
+        specifier: workspace:*
+        version: link:../extensions-sdk
     devDependencies:
       '@qwery/eslint-config':
         specifier: workspace:*
@@ -1266,6 +1327,9 @@ importers:
       '@qwery/domain':
         specifier: workspace:*
         version: link:../../domain
+      '@qwery/extensions-loader':
+        specifier: workspace:*
+        version: link:../../extensions-loader
       '@qwery/extensions-sdk':
         specifier: workspace:*
         version: link:../../extensions-sdk

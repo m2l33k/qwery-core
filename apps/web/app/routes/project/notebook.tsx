@@ -21,7 +21,7 @@ import { useGetDatasourcesByProjectId } from '~/lib/queries/use-get-datasources'
 import { useGetNotebook } from '~/lib/queries/use-get-notebook';
 import { NOTEBOOK_EVENTS, telemetry } from '@qwery/telemetry';
 import { Skeleton } from '@qwery/ui/skeleton';
-import { getAllExtensionMetadata } from '@qwery/extensions-sdk';
+import { getAllExtensionMetadata } from '@qwery/extensions-loader';
 
 export default function NotebookPage() {
   const params = useParams();

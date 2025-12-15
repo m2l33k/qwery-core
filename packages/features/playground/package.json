@@ -20,6 +20,7 @@
   "dependencies": {
     "@electric-sql/pglite": "^0.3.12",
     "@qwery/domain": "workspace:*",
+    "@qwery/extensions-loader": "workspace:*",
     "@qwery/extensions-sdk": "workspace:*",
     "nanoid": "^5.1.6",
     "uuid": "catalog:"

@@ -61,7 +61,7 @@ export interface IDataSourceDriver {
 {
   "name": "@example/qwery-csv",
   "version": "0.0.1",
-  "main": "./dist/extension.js",
+  "main": "./dist/driver.js",
   "contributes": {
     "datasources": [
       {

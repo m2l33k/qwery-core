@@ -1,7 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 
 import { Datasource } from '@qwery/domain/entities';
-import { getDiscoveredDatasource, getExtension } from '@qwery/extensions-sdk';
+import { getExtension } from '@qwery/extensions-loader';
+import { getDiscoveredDatasource } from '@qwery/extensions-sdk';
 
 type TestConnectionResult = {
   success: boolean;

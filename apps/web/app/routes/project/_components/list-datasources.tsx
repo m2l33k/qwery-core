@@ -11,7 +11,7 @@ import { ArrowRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 import type { Datasource } from '@qwery/domain/entities';
-import { getAllExtensionMetadata } from '@qwery/extensions-sdk';
+import { getAllExtensionMetadata } from '@qwery/extensions-loader';
 import { Button } from '@qwery/ui/button';
 import { Input } from '@qwery/ui/input';
 import { Kbd, KbdGroup } from '@qwery/ui/kbd';

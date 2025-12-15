@@ -132,11 +132,15 @@ export async function datasourceToDuckdb(
   }
 
   // For other providers, we need to load the driver and get metadata
-  // Dynamically import extensions-sdk to avoid build-time dependency issues
+  // Dynamically import extensions-sdk and extensions-loader to avoid build-time dependency issues
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Dynamic import, module will be available at runtime
   const extensionsSdk = await import('@qwery/extensions-sdk');
-  const { getDiscoveredDatasource, loadDriverInstance } = extensionsSdk;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - Dynamic import, module will be available at runtime
+  const extensionsLoader = await import('@qwery/extensions-loader');
+  const { getDiscoveredDatasource } = extensionsSdk;
+  const { getDriverInstance } = extensionsLoader;
 
   // Get extension metadata to find the driver
   const dsMeta = await getDiscoveredDatasource(datasource.datasource_provider);
@@ -203,16 +207,13 @@ export async function datasourceToDuckdb(
     );
   }
 
-  const driver = await loadDriverInstance(
-    {
-      id: driverId,
-      packageDir: dsMeta.packageDir,
-      entry: driverMeta.entry,
-      runtime: (driverMeta.runtime as 'node' | 'browser') || 'node',
-      name: driverMeta.name || driverId,
-    },
-    datasource.id,
-  );
+  const driver = await getDriverInstance({
+    id: driverId,
+    packageDir: dsMeta.packageDir,
+    entry: driverMeta.entry,
+    runtime: (driverMeta.runtime as 'node' | 'browser') || 'node',
+    name: driverMeta.name || driverId,
+  });
 
   try {
     // Test connection

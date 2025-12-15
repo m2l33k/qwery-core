@@ -5,5 +5,4 @@ export * from './driver';
 export * from './metadata';
 export * from './qwery';
 export * from './manifest-discovery';
-export * from './runtime-driver-loader';
 export * from './json-schema-to-zod';

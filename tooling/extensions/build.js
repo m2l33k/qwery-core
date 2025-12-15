@@ -34,6 +34,15 @@ const publicRoot = path.resolve(
   'extensions',
 );
 
+const extensionsLoaderSrc = path.resolve(
+  here,
+  '..',
+  '..',
+  'packages',
+  'extensions-loader',
+  'src',
+);
+
 async function main() {
   await fs.rm(publicRoot, { recursive: true, force: true });
   await fs.mkdir(publicRoot, { recursive: true });
@@ -59,7 +68,7 @@ async function main() {
       const driverDescriptors = [];
       for (const driver of dsDrivers) {
         const entryFile =
-          driver.entry ?? pkg.main ?? './dist/extension.js';
+          driver.entry ?? pkg.main ?? './dist/driver.js';
         const runtime = driver.runtime ?? 'node';
 
         let copiedEntry;
@@ -288,9 +297,15 @@ async function main() {
     }
   }
 
-  const registryPath = path.join(publicRoot, 'registry.json');
-  await fs.writeFile(registryPath, JSON.stringify(registry, null, 2));
-  console.log(`[extensions-build] Registry written to ${registryPath}`);
+  // Write registry.json to extensions-loader/src for SDK imports
+  const extensionsLoaderRegistryPath = path.join(extensionsLoaderSrc, 'registry.json');
+  await fs.writeFile(extensionsLoaderRegistryPath, JSON.stringify(registry, null, 2));
+  console.log(`[extensions-build] Registry written to ${extensionsLoaderRegistryPath}`);
+
+  // Also write to public for web app (datasources-loader.ts)
+  const publicRegistryPath = path.join(publicRoot, 'registry.json');
+  await fs.writeFile(publicRegistryPath, JSON.stringify(registry, null, 2));
+  console.log(`[extensions-build] Registry written to ${publicRegistryPath}`);
 }
 
 async function findPGliteInPnpm(nodeModulesPath) {

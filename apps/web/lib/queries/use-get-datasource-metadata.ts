@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Datasource, DatasourceMetadata } from '@qwery/domain/entities';
 import { DatasourceKind } from '@qwery/domain/entities';
-import { getDiscoveredDatasource, getExtension } from '@qwery/extensions-sdk';
+import { getExtension } from '@qwery/extensions-loader';
+import { getDiscoveredDatasource } from '@qwery/extensions-sdk';
 import { apiPost } from '../repositories/api-client';
 
 export function getDatasourceMetadataKey(

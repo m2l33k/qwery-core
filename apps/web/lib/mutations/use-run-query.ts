@@ -5,7 +5,8 @@ import {
   DatasourceKind,
   type DatasourceResultSet,
 } from '@qwery/domain/entities';
-import { getExtension, getDiscoveredDatasource } from '@qwery/extensions-sdk';
+import { getExtension } from '@qwery/extensions-loader';
+import { getDiscoveredDatasource } from '@qwery/extensions-sdk';
 
 type RunQueryPayload = {
   cellId: number;

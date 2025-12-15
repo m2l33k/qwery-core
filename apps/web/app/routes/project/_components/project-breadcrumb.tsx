@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 
 import type { Notebook, Organization, Project } from '@qwery/domain/entities';
-import { getAllExtensionMetadata } from '@qwery/extensions-sdk';
+import { getAllExtensionMetadata } from '@qwery/extensions-loader';
 import {
   QweryBreadcrumb,
   type BreadcrumbNodeItem,

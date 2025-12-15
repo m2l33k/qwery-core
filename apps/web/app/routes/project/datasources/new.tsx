@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 
 import { Datasource, DatasourceKind } from '@qwery/domain/entities';
 import { GetProjectBySlugService } from '@qwery/domain/services';
-import { getDiscoveredDatasource, getExtension } from '@qwery/extensions-sdk';
+import { getDiscoveredDatasource } from '@qwery/extensions-sdk';
 import { FormRenderer } from '@qwery/ui/form-renderer';
 import { Button } from '@qwery/ui/button';
 import {
@@ -34,11 +34,12 @@ import { useCreateDatasource } from '~/lib/mutations/use-create-datasource';
 import { useTestConnection } from '~/lib/mutations/use-test-connection';
 import { generateRandomName } from '~/lib/names';
 import { useGetExtension } from '~/lib/queries/use-get-extension';
+import { DATASOURCES } from '~/lib/datasources-loader';
 
 import type { Route } from './+types/new';
 
 export async function loader({ params }: Route.LoaderArgs) {
-  const extension = await getExtension(params.id);
+  const extension = DATASOURCES.find((ds) => ds.id === params.id);
 
   if (!extension) {
     throw new Response('Extension not found', { status: 404 });

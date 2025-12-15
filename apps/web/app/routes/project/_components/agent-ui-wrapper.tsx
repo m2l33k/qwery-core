@@ -16,7 +16,7 @@ import { useWorkspace } from '~/lib/context/workspace-context';
 import { getUsageKey, useGetUsage } from '~/lib/queries/use-get-usage';
 import { QweryContextProps } from 'node_modules/@qwery/ui/src/qwery/ai/context';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
-import { getAllExtensionMetadata } from '@qwery/extensions-sdk';
+import { getAllExtensionMetadata } from '@qwery/extensions-loader';
 import { useGetDatasourcesByProjectId } from '~/lib/queries/use-get-datasources';
 import type { DatasourceItem } from '@qwery/ui/ai';
 import { useGetConversationBySlug } from '~/lib/queries/use-get-conversations';

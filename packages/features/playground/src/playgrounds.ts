@@ -1,7 +1,7 @@
 import type { Datasource, Playground } from '@qwery/domain/entities';
 import { DatasourceKind } from '@qwery/domain/entities';
 import { IDatasourceRepository } from '@qwery/domain/repositories';
-import { getExtension } from '@qwery/extensions-sdk';
+import { getExtension } from '@qwery/extensions-loader';
 
 import { PlaygroundFactory } from './factory/playground-factory';
 import { generateRandomName } from './utils/names';

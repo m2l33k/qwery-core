@@ -1,0 +1,46 @@
+{
+  "name": "@qwery/extensions-loader",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "clean": "git clean -xdf .turbo node_modules",
+    "format": "prettier --check \"**/*.{ts,tsx}\"",
+    "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
+    "lint:fix": "eslint --cache --cache-location ./node_modules/.cache/eslint --fix .",
+    "test": "vitest run --logHeapUsage --coverage --passWithNoTests",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@qwery/extension-clickhouse-node": "workspace:*",
+    "@qwery/extension-duckdb": "workspace:*",
+    "@qwery/extension-gsheet-csv": "workspace:*",
+    "@qwery/extension-json-online": "workspace:*",
+    "@qwery/extension-mysql": "workspace:*",
+    "@qwery/extension-parquet-online": "workspace:*",
+    "@qwery/extension-postgresql": "workspace:*",
+    "@qwery/extension-youtube-data-api-v3": "workspace:*",
+    "@qwery/extensions-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@qwery/eslint-config": "workspace:*",
+    "@qwery/prettier-config": "workspace:*",
+    "@qwery/tsconfig": "workspace:*",
+    "@vitest/coverage-istanbul": "catalog:",
+    "eslint": "^9.39.0",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "prettier": "@qwery/prettier-config",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "src/*"
+      ]
+    }
+  }
+}
