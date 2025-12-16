@@ -1,4 +1,9 @@
 import { getDatasourceDatabaseName } from '@qwery/agent-factory-sdk/tools/datasource-name-utils';
+import {
+  createQueryEngine,
+  type AbstractQueryEngine,
+} from '@qwery/domain/ports';
+import { DuckDBQueryEngine } from '@qwery/agent-factory-sdk';
 import type { ActionFunctionArgs } from 'react-router';
 import { createRepositories } from '~/lib/repositories/repositories-factory';
 import { handleDomainException } from '~/lib/utils/error-handler';
@@ -81,44 +86,51 @@ export async function action({ request }: ActionFunctionArgs) {
       provider: datasource.datasource_provider,
     });
 
-    // Dynamically import DuckDBInstanceManager (like run-query.ts does)
-    const { DuckDBInstanceManager } = await import(
-      '@qwery/agent-factory-sdk/tools/duckdb-instance-manager'
+    // Dynamically import loadDatasources using package export
+    const { loadDatasources } = await import(
+      '@qwery/agent-factory-sdk/tools/datasource-loader'
     );
 
-    // Reset sync cache to force a fresh sync (bypasses optimization check)
-    // This ensures the datasource is always attached, even if it was recently synced
-    DuckDBInstanceManager.resetSyncCache(conversationId, workspace);
+    // Create and initialize queryEngine (aligned with main's architecture)
+    const queryEngine: AbstractQueryEngine =
+      createQueryEngine(DuckDBQueryEngine);
 
-    // Sync datasources BEFORE getting connection (ensures Google Sheets are attached)
-    // This must happen first so the connection has access to attached databases
-    console.log(
-      '[Notebook Query API] Syncing datasources before query:',
-      datasourceId,
-    );
     try {
-      await DuckDBInstanceManager.syncDatasources(
-        conversationId,
-        workspace,
+      await queryEngine.initialize({
+        workingDir: 'file://', // In-memory instance
+        config: {},
+      });
+
+      const loaded = await loadDatasources(
         [datasourceId],
         repositories.datasource,
-        true, // detachUnchecked - allow detaching to ensure clean state
       );
-      console.log(
-        '[Notebook Query API] Datasource sync completed successfully',
+      if (loaded.length > 0) {
+        await queryEngine.attach(
+          loaded.map(
+            (d: { datasource: import('@qwery/domain/entities').Datasource }) =>
+              d.datasource,
+          ),
+        );
+        await queryEngine.connect();
+        console.log(
+          '[Notebook Query API] Query engine initialized and datasource attached',
+        );
+      } else {
+        throw new Error(`Failed to load datasource ${datasourceId}`);
+      }
+    } catch (initError) {
+      const errorMsg =
+        initError instanceof Error ? initError.message : String(initError);
+      console.error(
+        '[Notebook Query API] Failed to initialize query engine:',
+        errorMsg,
       );
-    } catch (syncError) {
-      console.error('[Notebook Query API] Datasource sync failed:', syncError);
-      // Continue anyway - the datasource might already be attached
-      // But log the error for debugging
+      return Response.json(
+        { error: `Failed to initialize query engine: ${errorMsg}` },
+        { status: 500 },
+      );
     }
-
-    // Get DuckDB connection AFTER sync (connection will have access to attached databases)
-    const conn = await DuckDBInstanceManager.getConnection(
-      conversationId,
-      workspace,
-    );
-    console.log('[Notebook Query API] Got DuckDB connection, executing query');
 
     // Transform query for Google Sheets: remove .main. schema references
     // Google Sheets tables are created in the database's own schema, not in 'main'
@@ -157,65 +169,9 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     try {
-      // Verify attached databases for debugging
-      let attachedDatabases: string[] = [];
+      let result;
       try {
-        const dbListReader = await conn.runAndReadAll(
-          'SELECT name FROM pragma_database_list',
-        );
-        await dbListReader.readAll();
-        const databases = dbListReader.getRowObjectsJS() as Array<{
-          name: string;
-        }>;
-        attachedDatabases = databases.map((d) => d.name);
-        console.log(
-          '[Notebook Query API] Attached databases:',
-          attachedDatabases,
-        );
-        console.log(
-          '[Notebook Query API] Expected database name:',
-          expectedDbName,
-        );
-
-        if (!attachedDatabases.includes(expectedDbName)) {
-          console.warn(
-            `[Notebook Query API] WARNING: Expected database "${expectedDbName}" not found in attached databases. ` +
-              `Query may fail if it references this database name.`,
-          );
-        } else {
-          // Database is attached, check what tables exist in it
-          try {
-            const tablesReader = await conn.runAndReadAll(
-              `SHOW TABLES FROM "${expectedDbName}"`,
-            );
-            await tablesReader.readAll();
-            const tables = tablesReader.getRowObjectsJS() as Array<{
-              name: string;
-            }>;
-            const tableNames = tables.map((t) => t.name);
-            console.log(
-              `[Notebook Query API] Tables in database "${expectedDbName}":`,
-              tableNames,
-            );
-          } catch (tablesError) {
-            console.warn(
-              '[Notebook Query API] Could not list tables:',
-              tablesError,
-            );
-          }
-        }
-      } catch (dbListError) {
-        console.warn(
-          '[Notebook Query API] Could not list databases:',
-          dbListError,
-        );
-      }
-
-      // Execute the query
-      let resultReader;
-      try {
-        resultReader = await conn.runAndReadAll(transformedQuery);
-        await resultReader.readAll();
+        result = await queryEngine.query(transformedQuery);
       } catch (queryError) {
         // If query fails with database not found error, provide helpful message
         const errorMessage =
@@ -224,29 +180,10 @@ export async function action({ request }: ActionFunctionArgs) {
           errorMessage.includes('does not exist') ||
           errorMessage.includes('Catalog Error')
         ) {
-          // Try to get table list for better error message
-          let availableTables: string[] = [];
-          try {
-            const tablesReader = await conn.runAndReadAll(
-              `SHOW TABLES FROM "${expectedDbName}"`,
-            );
-            await tablesReader.readAll();
-            const tables = tablesReader.getRowObjectsJS() as Array<{
-              name: string;
-            }>;
-            availableTables = tables.map((t) => t.name);
-          } catch {
-            // Ignore errors when trying to list tables
-          }
-
           const helpfulError =
             `Query failed: ${errorMessage}\n\n` +
             `Expected database name: "${expectedDbName}"\n` +
-            `Attached databases: ${attachedDatabases.length > 0 ? attachedDatabases.join(', ') : 'none'}\n` +
             `Datasource name: "${datasource.name}"\n` +
-            (availableTables.length > 0
-              ? `Available tables in "${expectedDbName}": ${availableTables.join(', ')}\n`
-              : '') +
             `If the query uses a different database or table name, it may need to be updated to match the actual names.`;
           console.error(
             '[Notebook Query API] Query execution failed:',
@@ -256,43 +193,30 @@ export async function action({ request }: ActionFunctionArgs) {
         }
         throw queryError;
       }
-      const rows = resultReader.getRowObjectsJS() as Array<
-        Record<string, unknown>
-      >;
-      const columnNames = resultReader.columnNames();
 
-      // Ensure rows and columnNames are arrays (handle edge cases)
-      const safeRows = Array.isArray(rows) ? rows : [];
-      const safeColumnNames = Array.isArray(columnNames) ? columnNames : [];
-
-      // Convert BigInt values to numbers/strings for JSON serialization
-      const convertedRows = safeRows.map(
-        (row) => convertBigInt(row) as Record<string, unknown>,
-      );
-
-      // Transform to DatasourceResultSet format
-      const headers = safeColumnNames.map((name) => ({
-        name: String(name),
-        displayName: String(name),
-        originalType: null,
+      const headers = result.columns.map((col) => ({
+        name: col.name,
+        displayName: col.displayName,
+        originalType: col.originalType,
       }));
 
       return Response.json({
         success: true,
         data: {
-          rows: convertedRows,
+          rows: result.rows,
           headers,
-          stat: {
-            rowsAffected: 0,
-            rowsRead: convertedRows.length,
-            rowsWritten: 0,
-            queryDurationMs: null,
-          },
+          stat: result.stat,
         },
       });
     } finally {
-      // Return connection to pool
-      DuckDBInstanceManager.returnConnection(conversationId, workspace, conn);
+      try {
+        await queryEngine.close();
+      } catch (closeError) {
+        console.warn(
+          '[Notebook Query API] Failed to close query engine:',
+          closeError,
+        );
+      }
     }
   } catch (error) {
     return handleDomainException(error);
