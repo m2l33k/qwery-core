@@ -12,6 +12,9 @@ const BUSINESS_CONTEXT_FILE = 'business-context.json';
  * Returns the protocol (without colon) or 'file' for local paths.
  */
 function detectProtocol(pathOrUri: string): string {
+  if (/^[a-zA-Z]:[\\/]/.test(pathOrUri)) {
+    return 'file';
+  }
   try {
     const url = new URL(pathOrUri);
     return url.protocol.replace(':', '');

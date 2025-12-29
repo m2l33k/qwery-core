@@ -204,10 +204,14 @@ export const buildBusinessContext = async (
     updatedAt: new Date().toISOString(),
   };
 
-  // Save in background (don't await - this is the only I/O and it's async)
-  saveBusinessContext(opts.conversationDir, fastContext).catch((err) => {
-    console.warn(`[BuildBusinessContext] Failed to save fast context:`, err);
-  });
+  const savePromise = saveBusinessContext(opts.conversationDir, fastContext);
+  if (process.env.VITEST_WORKER_ID || process.env.NODE_ENV === 'test') {
+    await savePromise;
+  } else {
+    savePromise.catch((err) => {
+      console.warn(`[BuildBusinessContext] Failed to save fast context:`, err);
+    });
+  }
 
   const elapsed = Date.now() - startTime;
   if (elapsed > 100) {

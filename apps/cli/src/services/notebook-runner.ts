@@ -41,6 +41,13 @@ export class NotebookRunner {
   }
 
   public async runCell(options: RunCellOptions): Promise<RunCellResult> {
+    if (
+      options.mode === 'natural' &&
+      process.env.QWERY_ENABLE_NATURAL_LANGUAGE !== '1' &&
+      process.env.QWERY_ENABLE_NATURAL_LANGUAGE !== 'true'
+    ) {
+      throw new CliUsageError('Natural language mode is not yet available');
+    }
     // If SQL mode, execute directly
     if (options.mode === 'sql') {
       const driver = await createDriverForDatasource(options.datasource);
@@ -101,7 +108,7 @@ export class NotebookRunner {
 
         agent = await FactoryAgent.create({
           conversationSlug,
-          model: 'azure/gpt-5-mini',
+          model: process.env.QWERY_DEFAULT_MODEL ?? 'llamacpp/default',
           repositories: repositories as FactoryAgentOptions['repositories'],
         });
         agents.set(options.datasource.id, agent);
@@ -183,14 +190,13 @@ export class NotebookRunner {
         rowCount: 1,
       };
     } catch (error) {
-      // Catch Azure credential errors and other agent initialization errors
       if (
         error instanceof Error &&
-        (error.message.includes('Azure credentials') ||
-          error.message.includes('AZURE_API_KEY') ||
-          error.message.includes('AZURE_RESOURCE_NAME'))
+        error.message.includes('[AgentFactory][llamacpp] Failed to reach local LLM')
       ) {
-        throw new CliUsageError('Natural language mode is not yet available');
+        throw new CliUsageError(
+          'Natural language mode requires a running local LLM server',
+        );
       }
       // Re-throw other errors
       throw error;

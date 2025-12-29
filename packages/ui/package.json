@@ -84,6 +84,7 @@
     "class-variance-authority": "^0.7.1",
     "date-fns": "catalog:",
     "eslint": "^9.39.0",
+    "happy-dom": "catalog:",
     "jsdom": "^27.1.0",
     "next-themes": "0.4.6",
     "prettier": "^3.6.2",

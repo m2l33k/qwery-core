@@ -117,7 +117,7 @@ async function getOrCreateConversation(
 
 async function getOrCreateAgent(
   conversationSlug: string,
-  model: string = 'azure/gpt-5-mini',
+  model: string = process.env.QWERY_DEFAULT_MODEL ?? 'llamacpp/default',
 ): Promise<FactoryAgent> {
   let agent = agents.get(conversationSlug);
   if (agent) {
@@ -274,7 +274,7 @@ export async function action({ request }: ActionFunctionArgs) {
     datasourceId,
     projectId,
     userId,
-    model = 'azure/gpt-5-mini',
+    model = process.env.QWERY_DEFAULT_MODEL ?? 'llamacpp/default',
     notebookCellType,
   } = body;
 

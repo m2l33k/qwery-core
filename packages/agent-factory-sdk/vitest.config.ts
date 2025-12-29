@@ -1,7 +1,7 @@
-import { defineConfig } from 'vitest/config';
+import type { ViteUserConfig } from 'vitest/config';
 import path from 'path';
 
-export default defineConfig({
+const config: ViteUserConfig = {
   test: {
     coverage: {
       provider: 'istanbul',
@@ -16,4 +16,6 @@ export default defineConfig({
       src: path.resolve(__dirname, './src'),
     },
   },
-});
+};
+
+export default config;

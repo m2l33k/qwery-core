@@ -1,6 +1,7 @@
 import type { Datasource } from '@qwery/domain/entities';
 import type { CliContainer } from '../container/cli-container';
 import type { RunCellResult } from './notebook-runner';
+import { CliUsageError } from '../utils/errors';
 
 export class InteractiveQueryHandler {
   constructor(private readonly container: CliContainer) {}
@@ -10,6 +11,13 @@ export class InteractiveQueryHandler {
     datasource: Datasource,
   ): Promise<RunCellResult> {
     const mode = this.detectMode(query);
+    if (
+      mode === 'natural' &&
+      process.env.QWERY_ENABLE_NATURAL_LANGUAGE !== '1' &&
+      process.env.QWERY_ENABLE_NATURAL_LANGUAGE !== 'true'
+    ) {
+      throw new CliUsageError('Natural language mode is not yet available');
+    }
     const runner = this.container.getNotebookRunner();
 
     return await runner.runCell({
@@ -44,7 +52,7 @@ export class InteractiveQueryHandler {
       }
     }
 
-    // Default to natural language (will error if SqlAgent not available)
+    // Default to natural language (may be disabled in CLI)
     return 'natural';
   }
 }

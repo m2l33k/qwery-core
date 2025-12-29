@@ -1,7 +1,7 @@
 import * as path from 'path';
-import { defineConfig } from 'vitest/config';
+import type { UserConfig } from 'vitest/config';
 
-export default defineConfig({
+const config: UserConfig = {
   test: {
     coverage: {
       provider: 'istanbul',
@@ -13,4 +13,6 @@ export default defineConfig({
       '@qwery/extensions-loader': path.resolve(__dirname, './src'),
     },
   },
-});
+};
+
+export default config;

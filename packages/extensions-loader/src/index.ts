@@ -24,56 +24,49 @@ const loadedDrivers = new Set<string>();
  * Manual map of driver IDs to their import functions.
  * Add new node drivers here when creating new extensions.
  */
-const driverImports = new Map<string, DriverImportFn>([
-  // ClickHouse Node
-  [
+const driverImports = new Map<string, DriverImportFn>();
+
+const importMeta = import.meta as unknown as { env?: { SSR?: boolean } };
+const viteEnv = (importMeta as unknown as { env?: unknown }).env;
+const isViteBuild = typeof viteEnv !== 'undefined';
+const isServerBundleOrRuntime =
+  !isViteBuild || (import.meta as unknown as { env?: { SSR?: boolean } }).env?.SSR === true;
+
+if (isServerBundleOrRuntime) {
+  driverImports.set(
     'clickhouse.node',
     () => import('@qwery/extension-clickhouse-node') as Promise<DriverModule>,
-  ],
-
-  // DuckDB Node
-  [
+  );
+  driverImports.set(
     'duckdb.default',
     () => import('@qwery/extension-duckdb') as Promise<DriverModule>,
-  ],
-
-  // Google Sheets CSV
-  [
+  );
+  driverImports.set(
     'gsheet-csv.duckdb',
     () => import('@qwery/extension-gsheet-csv') as Promise<DriverModule>,
-  ],
-
-  // JSON Online
-  [
+  );
+  driverImports.set(
     'json-online.duckdb',
     () => import('@qwery/extension-json-online') as Promise<DriverModule>,
-  ],
-
-  // MySQL
-  [
+  );
+  driverImports.set(
     'mysql.default',
     () => import('@qwery/extension-mysql') as Promise<DriverModule>,
-  ],
-
-  // Parquet Online
-  [
+  );
+  driverImports.set(
     'parquet-online.duckdb',
     () => import('@qwery/extension-parquet-online') as Promise<DriverModule>,
-  ],
-
-  // PostgreSQL (used by postgresql, postgresql-supabase, postgresql-neon)
-  [
+  );
+  driverImports.set(
     'postgresql.default',
     () => import('@qwery/extension-postgresql') as Promise<DriverModule>,
-  ],
-
-  // YouTube Data API v3
-  [
+  );
+  driverImports.set(
     'youtube-data-api-v3.default',
     () =>
       import('@qwery/extension-youtube-data-api-v3') as Promise<DriverModule>,
-  ],
-]);
+  );
+}
 
 /**
  * Load a node driver module by driver ID

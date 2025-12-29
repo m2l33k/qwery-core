@@ -1,13 +1,15 @@
-import { defineConfig } from 'vitest/config';
+import type { UserConfig } from 'vitest/config';
 
-export default defineConfig({
+const config: UserConfig = {
   test: {
     coverage: {
       provider: 'istanbul',
     },
     globals: true,
-    environment: 'jsdom',
+    environment: 'node',
     setupFiles: ['./vitest.setup.ts'],
     pool: 'vmThreads',
   },
-});
+};
+
+export default config;

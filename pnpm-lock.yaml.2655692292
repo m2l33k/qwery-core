@@ -508,9 +508,6 @@ importers:
       eslint-plugin-react-hooks:
         specifier: ^7.0.1
         version: 7.0.1(eslint@9.39.1(jiti@2.6.1))
-      happy-dom:
-        specifier: 'catalog:'
-        version: 20.0.11
       jsdom:
         specifier: ^27.1.0
         version: 27.1.0

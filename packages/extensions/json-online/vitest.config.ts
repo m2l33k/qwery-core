@@ -1,7 +1,7 @@
 import path from 'node:path';
-import { defineConfig } from 'vitest/config';
+import type { UserConfig } from 'vitest/config';
 
-export default defineConfig({
+const config: UserConfig = {
   test: {
     coverage: {
       provider: 'istanbul',
@@ -17,5 +17,7 @@ export default defineConfig({
       ),
     },
   },
-});
+};
+
+export default config;
 

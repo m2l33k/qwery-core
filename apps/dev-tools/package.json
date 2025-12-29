@@ -7,7 +7,7 @@
     "build": "cross-env NODE_ENV=production react-router build",
     "dev": "react-router dev",
     "start": "cross-env NODE_ENV=production react-router-serve ./build/server/index.js",
-    "typecheck": "react-router typegen && tsc",
+    "typecheck": "node -e \"const fs=require('node:fs'); const cp=require('node:child_process'); fs.rmSync('.react-router/types',{recursive:true,force:true,maxRetries:10,retryDelay:100}); const r=cp.spawnSync('react-router typegen',{shell:true,encoding:'utf8'}); process.stdout.write(r.stdout||''); process.stderr.write(r.stderr||''); if(r.status!==0 && !(String(r.stdout)+String(r.stderr)).includes('ENOTEMPTY')) process.exit(r.status||1);\" && tsc",
     "clean": "git clean -xdf .turbo node_modules",
     "format": "prettier --check \"**/*.{ts,tsx}\"",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",

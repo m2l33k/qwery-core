@@ -24,7 +24,7 @@ export function createTransformerJSModelProvider({
           "[AgentFactory] Missing Transformers.js model. Provide it as 'transformer-browser/<model-name>' or 'transformer/<model-name>'.",
         );
       }
-      return transformersJS(MODEL_MAPPING[finalModel] || finalModel);
+      return transformersJS(MODEL_MAPPING[finalModel] || finalModel) as unknown as LanguageModel;
     },
   };
 }

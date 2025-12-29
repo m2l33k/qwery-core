@@ -20,7 +20,7 @@ export function createWebLLMModelProvider({
           "[AgentFactory] Missing WebLLM model. Provide it as 'webllm/<model-name>'.",
         );
       }
-      return webLLM(finalModel);
+      return webLLM(finalModel) as unknown as LanguageModel;
     },
   };
 }

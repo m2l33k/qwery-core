@@ -13,7 +13,7 @@ export function createBuiltInModelProvider(
   return {
     resolveModel: (_modelName) => {
       // Built-in AI doesn't use model names, it uses the browser's built-in model
-      return builtInAI();
+      return builtInAI() as unknown as LanguageModel;
     },
   };
 }
