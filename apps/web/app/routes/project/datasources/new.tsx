@@ -200,15 +200,22 @@ export default function DatasourcesPage({ loaderData }: Route.ComponentProps) {
       return;
     }
 
-    const userId = 'system'; // Default user - replace with actual user context
-
-    // Infer datasource_kind from extension driver runtime
     const dsMeta = await getDiscoveredDatasource(extension.data.id);
     const driver =
       dsMeta?.drivers.find(
         (d) => d.id === (config as { driverId?: string })?.driverId,
-      ) ?? dsMeta?.drivers[0];
-    const runtime = driver?.runtime ?? 'browser';
+      ) ??
+      (typeof window !== 'undefined'
+        ? dsMeta?.drivers.find((d) => d.runtime === 'browser')
+        : undefined) ??
+      dsMeta?.drivers[0];
+
+    if (!driver) {
+      toast.error('No driver found for datasource');
+      return;
+    }
+
+    const runtime = driver.runtime ?? 'browser';
     const datasourceKind =
       runtime === 'browser' ? DatasourceKind.EMBEDDED : DatasourceKind.REMOTE;
 
@@ -217,10 +224,10 @@ export default function DatasourcesPage({ loaderData }: Route.ComponentProps) {
       name: datasourceName.trim() || generateRandomName(),
       description: extension.data.description || '',
       datasource_provider: extension.data.id || '',
-      datasource_driver: extension.data.id || '',
+      datasource_driver: driver.id,
       datasource_kind: datasourceKind as string,
       config,
-      createdBy: userId,
+      createdBy: workspace.userId || 'system',
     });
   };
 
@@ -232,15 +239,46 @@ export default function DatasourcesPage({ loaderData }: Route.ComponentProps) {
       return;
     }
 
-    const testDatasource: Partial<Datasource> = {
-      datasource_provider: extension.data.id,
-      datasource_driver: extension.data.id,
-      datasource_kind: DatasourceKind.EMBEDDED,
-      name: datasourceName || 'Test Connection',
-      config: formValues,
-    };
+    (async () => {
+      const dsMeta = await getDiscoveredDatasource(extension.data.id);
+      const driver =
+        dsMeta?.drivers.find(
+          (d) => d.id === (formValues as { driverId?: string })?.driverId,
+        ) ??
+        (typeof window !== 'undefined'
+          ? dsMeta?.drivers.find((d) => d.runtime === 'browser')
+          : undefined) ??
+        dsMeta?.drivers[0];
 
-    testConnectionMutation.mutate(testDatasource as Datasource);
+      if (!driver) {
+        toast.error('No driver found for datasource');
+        return;
+      }
+
+      const runtime = driver.runtime ?? 'browser';
+      const datasourceKind =
+        runtime === 'browser'
+          ? DatasourceKind.EMBEDDED
+          : DatasourceKind.REMOTE;
+
+      const testDatasource: Partial<Datasource> = {
+        datasource_provider: extension.data.id,
+        datasource_driver: driver.id,
+        datasource_kind: datasourceKind,
+        name: datasourceName || 'Test Connection',
+        config: formValues,
+      };
+
+      testConnectionMutation.mutate(testDatasource as Datasource);
+    })().catch((error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to prepare connection test',
+      );
+    });
+
+    return;
   };
 
   return (
