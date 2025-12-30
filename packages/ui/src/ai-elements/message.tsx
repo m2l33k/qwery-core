@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import type { ComponentProps, HTMLAttributes, ReactElement } from 'react';
 import { createContext, memo, useContext, useEffect, useState } from 'react';
-import { Streamdown } from 'streamdown';
+import type { StreamdownProps } from 'streamdown';
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage['role'];
@@ -305,18 +305,55 @@ export const MessageBranchPage = ({
   );
 };
 
-export type MessageResponseProps = ComponentProps<typeof Streamdown>;
+type StreamdownComponent = React.ComponentType<StreamdownProps>;
+
+function useStreamdownComponent() {
+  const [component, setComponent] = useState<StreamdownComponent | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    import('streamdown')
+      .then((m) => {
+        if (!cancelled) {
+          setComponent(() => m.Streamdown as unknown as StreamdownComponent);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return component;
+}
+
+export type MessageResponseProps = StreamdownProps;
 
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
-      className={cn(
-        'overflow-wrap-anywhere size-full max-w-full min-w-0 break-words [&_a]:break-all [&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
-        className,
-      )}
-      {...props}
-    />
-  ),
+  ({ className, children, ...props }: MessageResponseProps) => {
+    const Streamdown = useStreamdownComponent();
+
+    const streamdownClassName = cn(
+      'overflow-wrap-anywhere size-full max-w-full min-w-0 break-words [&_a]:break-all [&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
+      className,
+    );
+
+    if (!Streamdown) {
+      return (
+        <div className={streamdownClassName}>
+          {typeof children === 'string' ? children : null}
+        </div>
+      );
+    }
+
+    return (
+      <Streamdown className={streamdownClassName} {...props}>
+        {children}
+      </Streamdown>
+    );
+  },
   (prevProps, nextProps) => prevProps.children === nextProps.children,
 );
 

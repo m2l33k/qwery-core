@@ -16,7 +16,7 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import { Streamdown } from 'streamdown';
+import type { StreamdownProps } from 'streamdown';
 import { Shimmer } from './shimmer';
 
 type ReasoningContextValue = {
@@ -182,23 +182,55 @@ export type ReasoningContentProps = ComponentProps<
   children: React.ReactNode;
 };
 
+type StreamdownComponent = React.ComponentType<StreamdownProps>;
+
+function useStreamdownComponent() {
+  const [component, setComponent] = useState<StreamdownComponent | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    import('streamdown')
+      .then((m) => {
+        if (!cancelled) {
+          setComponent(() => m.Streamdown as unknown as StreamdownComponent);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return component;
+}
+
 export const ReasoningContent = memo(
-  ({ className, children, ...props }: ReasoningContentProps) => (
-    <CollapsibleContent
-      className={cn(
-        'mt-4 text-sm',
-        'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 data-[state=closed]:animate-out data-[state=open]:animate-in outline-none',
-        className,
-      )}
-      {...props}
-    >
-      {typeof children === 'string' ? (
-        <Streamdown {...props}>{children}</Streamdown>
-      ) : (
-        children
-      )}
-    </CollapsibleContent>
-  ),
+  ({ className, children, ...props }: ReasoningContentProps) => {
+    const Streamdown = useStreamdownComponent();
+
+    return (
+      <CollapsibleContent
+        className={cn(
+          'mt-4 text-sm',
+          'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 data-[state=closed]:animate-out data-[state=open]:animate-in outline-none',
+          className,
+        )}
+        {...props}
+      >
+        {typeof children === 'string' ? (
+          Streamdown ? (
+            <Streamdown>{children}</Streamdown>
+          ) : (
+            <div>{children}</div>
+          )
+        ) : (
+          children
+        )}
+      </CollapsibleContent>
+    );
+  },
 );
 
 Reasoning.displayName = 'Reasoning';
