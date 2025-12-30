@@ -73,6 +73,20 @@ pnpm dev
 
 The web app will be available at `http://localhost:3000`
 
+### Local LLM (llama.cpp)
+
+Qwery can run without any cloud keys by talking to a local `llama.cpp` server that exposes an OpenAI-compatible API.
+
+Set these environment variables (for the web app, CLI, or both):
+
+```bash
+QWERY_DEFAULT_MODEL=llamacpp/default
+LLAMACPP_BASE_URL=http://127.0.0.1:8080/v1
+LLAMACPP_MODEL=<model-id>
+```
+
+Model resolution defaults to `llamacpp/default` if `QWERY_DEFAULT_MODEL` is not set (`packages/agent-factory-sdk/src/services/model-resolver.ts:32-34`).
+
 ### Desktop Application
 
 ```bash

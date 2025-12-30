@@ -44,7 +44,12 @@ const extensionsLoaderSrc = path.resolve(
 );
 
 async function main() {
-  await fs.rm(publicRoot, { recursive: true, force: true });
+  await fs.rm(publicRoot, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 100,
+  });
   await fs.mkdir(publicRoot, { recursive: true });
 
   const registry = { datasources: [] };

@@ -49,17 +49,15 @@ A command-line interface for managing Qwery workspaces, datasources, notebooks, 
 
 ### Environment Variables
 
-The CLI requires environment variables for the AI agent to work. Create a `.env` file in `apps/cli/`:
+The CLI can be run with a fully local LLM via `llama.cpp` (OpenAI-compatible server). Create a `.env` file in `apps/cli/`:
 
 ```bash
-# Query Agent Configuration
-VITE_AGENT_PROVIDER=azure
-AGENT_PROVIDER=azure
+# Default model (provider/model)
+QWERY_DEFAULT_MODEL=llamacpp/default
 
-# Azure OpenAI Configuration
-AZURE_API_KEY=your-azure-api-key
-AZURE_RESOURCE_NAME=your-azure-resource-name
-AZURE_OPENAI_DEPLOYMENT=gpt-5-mini
+# llama.cpp (OpenAI-compatible server)
+LLAMACPP_BASE_URL=http://127.0.0.1:8080/v1
+LLAMACPP_MODEL=
 
 # Workspace Directory (for Google Sheets support)
 VITE_WORKING_DIR=workspace
@@ -74,11 +72,9 @@ You no longer need ad-hoc helper scripts—everything can be exercised directly 
 
 1. **Export the required environment variables (or place them in `.env`):**
    ```bash
-   export AZURE_API_KEY="<your-azure-api-key>"
-   export AZURE_RESOURCE_NAME="guepard-agent-rs"
-   export AZURE_OPENAI_DEPLOYMENT="gpt-5-mini"
-   export VITE_AGENT_PROVIDER=azure
-   export AGENT_PROVIDER=azure
+   export QWERY_DEFAULT_MODEL="llamacpp/default"
+   export LLAMACPP_BASE_URL="http://127.0.0.1:8080/v1"
+   export LLAMACPP_MODEL="<model-id-from-/v1/models>"
    export VITE_WORKING_DIR=workspace
    export WORKING_DIR=workspace
    ```
