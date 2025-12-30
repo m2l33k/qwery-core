@@ -19,8 +19,8 @@ export {
 
 const baseModels = [
   {
-    name: 'Local llama.cpp (default)',
-    value: 'llamacpp/default',
+    name: 'Local LLM (llama.cpp)',
+    value: 'local/default',
   },
   {
     name: 'DeepSeek R1 (8B)',

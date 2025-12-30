@@ -77,15 +77,45 @@ The web app will be available at `http://localhost:3000`
 
 Qwery can run without any cloud keys by talking to a local `llama.cpp` server that exposes an OpenAI-compatible API.
 
+Provider ids:
+
+- Recommended: `local`
+- Aliases: `llama.cpp`, `llama-cpp`, `llamacpp`
+
+Model used in this setup:
+
+- `Meta-Llama-3.1-8B-Instruct-Q4_K_M`
+
+#### Start the local LLM
+
+Start `llama.cpp` in OpenAI-compatible mode (example):
+
+```bash
+llama-server -m C:\models\your-model.gguf --host 127.0.0.1 --port 8080
+```
+
+Find the model id:
+
+- API: `http://127.0.0.1:8080/v1/models`
+- UI (chat): `http://127.0.0.1:8080/#/chat/5a7a700e-cf3d-4319-8283-a2fe2e41706f`
+
+#### Configure the app
+
 Set these environment variables (for the web app, CLI, or both):
 
 ```bash
-QWERY_DEFAULT_MODEL=llamacpp/default
-LLAMACPP_BASE_URL=http://127.0.0.1:8080/v1
-LLAMACPP_MODEL=<model-id>
+QWERY_DEFAULT_MODEL=local/default
+LOCAL_LLM_BASE_URL=http://127.0.0.1:8080/v1
+LOCAL_LLM_MODEL=Meta-Llama-3.1-8B-Instruct-Q4_K_M
 ```
 
 Model resolution defaults to `llamacpp/default` if `QWERY_DEFAULT_MODEL` is not set (`packages/agent-factory-sdk/src/services/model-resolver.ts:32-34`).
+
+### Validation
+
+![pnpm lint validation](assets/pnpm-lint-validation.png)
+
+![pnpm typecheck validation](assets/pnpm-typecheck-validation.png)
 
 ### Desktop Application
 
